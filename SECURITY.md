@@ -15,6 +15,6 @@ Before release, maintainers run:
 ```bash
 npm run typecheck
 npm test
-npm audit --audit-level=high
+npm run audit:high
 npm run check:mcp-isolation
 ```

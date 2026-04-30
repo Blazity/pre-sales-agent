@@ -8,7 +8,7 @@ Before opening a pull request:
 npm install
 npm run typecheck
 npm test
-npm audit --audit-level=high
+npm run audit:high
 npm run check:mcp-isolation
 ```
 
