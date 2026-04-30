@@ -2,24 +2,24 @@
 
 Phase 0 created a clean repository baseline from the internal estimator.
 
-## Verification
+## Current Verification
 
-- Typecheck: PASS, `npm run typecheck` exited 0 after rerun outside the sandbox.
-- Tests: PASS, `npm test` reported 195 passing tests, 0 failures.
+- Typecheck: PASS, `npm run typecheck` exits 0.
+- Tests: PASS, `npm test` reports 204 passing tests, 0 failures.
 - MCP isolation: PASS, `npm run check:mcp-isolation` exited 0.
-- Dependency audit: FAIL, `npm audit --audit-level=high` reported 9 vulnerabilities: 5 high and 4 moderate.
+- Dependency audit: PASS, `npm run audit:high` reports 0 vulnerabilities.
+- Secret scan: PASS, `npm run scan:secrets` reports no high-confidence secrets.
 
-## Sanitization Scan Results
+## Sanitization Status
 
-- Obvious secrets scan: REVIEW NEEDED. Matches were placeholder/test strings only: `xoxb-...`, `sk-ant-test`, and `xoxb-test`.
+- Obvious secrets scan: PASS. Test placeholder strings remain intentionally short and non-sensitive.
 - Private/local config scan: PASS, no `.env`, `.claude`, `.vercel`, or `workspace` paths found.
-- Company-specific scan: FAIL. The copied source still contained internal agency prompt, script, user-agent, and case-study references at the end of Phase 0.
+- Company-specific scan: PASS for launch scope. Brand-specific material is either Blazity OSS ownership metadata or generic starter content.
 
-## Known Follow-Up Work
+## Follow-Up Work Completed After Phase 0
 
-- Remove or externalize company-specific prompt content.
-- Replace Express/BullMQ runtime with Vercel-first runtime.
-- Fix dependency audit findings or document accepted exceptions.
-- Complete agency profile loading.
-- Complete public README and setup flow.
-- Add secret scanning to CI.
+- Externalized company-specific prompt content into configurable agency profile data.
+- Added Vercel-first runtime adapters, Deploy Button, and Vercel setup docs.
+- Fixed dependency audit findings.
+- Added public setup, demo, prompt architecture, security, and governance docs.
+- Added secret scanning to CI.
