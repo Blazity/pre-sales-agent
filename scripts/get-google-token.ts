@@ -49,7 +49,7 @@ const server = http.createServer(async (req, res) => {
   const tokens = (await tokenRes.json()) as { refresh_token: string };
 
   console.log("\n✅ GOOGLE_REFRESH_TOKEN =", tokens.refresh_token);
-  console.log("\nAdd this to your .env and Railway env vars.");
+  console.log("\nAdd this to your local .env and Vercel Environment Variables.");
 
   res.end("Auth complete! You can close this tab.");
   server.close();

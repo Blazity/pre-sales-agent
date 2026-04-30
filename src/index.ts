@@ -15,13 +15,13 @@ let shuttingDown = false;
 
 async function main() {
   // ── Step 1: Validate env vars ─────────────────────────────────────────────
-  // Do this first so we get a clear error message in Railway logs if any var
+  // Do this first so deployment logs show a clear error if any var
   // is missing, rather than a cryptic module-load failure.
   let env: typeof import("./lib/env.js")["env"];
   try {
     ({ env } = await import("./lib/env.js"));
   } catch (err) {
-    // Log as plain JSON so Railway surfaces it clearly
+    // Log as plain JSON so hosted runtimes surface it clearly.
     process.stderr.write(
       JSON.stringify({
         ts: new Date().toISOString(),
@@ -34,7 +34,7 @@ async function main() {
   }
 
   // ── Step 2: Start HTTP server immediately ─────────────────────────────────
-  // Railway's health check hits /health — this must be available ASAP.
+  // Health checks hit /health in the Express fallback runtime; keep it available ASAP.
   // We bind the port BEFORE initialising Slack or Redis so the container is
   // considered healthy even if those take a few seconds to connect.
   const httpServer = express();
@@ -48,8 +48,7 @@ async function main() {
     skip: (req) => req.path === "/health" || req.path.startsWith("/slack") || req.path.startsWith("/admin"),
   }));
 
-  // Health check (used by Railway) — returns 503 during shutdown so Railway
-  // stops routing traffic to the old container.
+  // Returns 503 during shutdown so the runtime stops routing traffic to the old process.
   httpServer.get("/health", (_req, res) => {
     if (shuttingDown) {
       res.status(503).json({ status: "shutting_down" });
@@ -77,7 +76,7 @@ async function main() {
     const { createSlackApp, validateSlackToken } = await import("./slack/bolt-app.js");
 
     // Validate the bot token BEFORE creating the Bolt app. This call logs a
-    // clear success/failure message so Railway logs immediately show whether
+    // clear success/failure message so deployment logs show whether
     // the token is valid. Without a valid token Bolt silently drops all events.
     const authResult = await validateSlackToken();
     if (!authResult) {

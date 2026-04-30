@@ -69,6 +69,8 @@ After Vercel creates the project:
 6. Seed knowledge-base data with `npm run seed` from a local checkout that has the same Pinecone, Voyage, and Google env vars.
 7. Send a short test RFP in Slack with `!estimate <brief>` and confirm a queue message is processed.
 
+Use `docs/setup.md` for provider-specific setup details and required Slack scopes.
+
 ## Local Fallback
 
 BullMQ remains available for local development or self-hosted runs. Set `JOB_QUEUE_PROVIDER=bullmq` and run `npm run dev` with Redis.

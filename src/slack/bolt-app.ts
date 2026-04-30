@@ -11,7 +11,7 @@ import { extractAllDriveLinks } from "../lib/google-drive.js";
 
 /**
  * Validate the bot token by calling auth.test().  Returns the bot identity on
- * success, or null on failure (with a clear log message so Railway shows it).
+ * success, or null on failure with a clear deployment log message.
  */
 export async function validateSlackToken(): Promise<{
   botId: string;

@@ -24,6 +24,8 @@ This project is an OSS starter extracted from a production-shaped internal estim
 
 Use the Deploy with Vercel button to create your own Vercel project and enter environment variables in Vercel during project creation. No local Vercel project link is required for the OSS starter.
 
+Follow `docs/setup.md` for provider setup across Slack, Google Workspace, Pinecone, Voyage, Redis, and Vercel.
+
 ## Local Development
 
 ```bash
@@ -38,6 +40,7 @@ npm test
 ## Documentation
 
 - `docs/architecture.md` explains the agent pipeline and MCP boundaries.
+- `docs/setup.md` walks through a fresh provider setup.
 - `docs/configuration.md` explains agency profile and environment configuration.
 - `docs/deployment/vercel.md` tracks the Vercel-first deployment target.
 - `docs/security.md` documents security gates and threat model notes.
