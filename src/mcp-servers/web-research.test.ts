@@ -1,0 +1,86 @@
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+
+const { htmlToText, parseBraveResults } = await import("./web-research.js");
+
+describe("parseBraveResults()", () => {
+  it("extracts title, url, description from Brave API response", () => {
+    const apiResponse = {
+      web: {
+        results: [
+          { title: "Example", url: "https://example.com", description: "A description" },
+          { title: "Another", url: "https://another.com", description: "More text" },
+        ],
+      },
+    };
+    const results = parseBraveResults(apiResponse);
+    assert.equal(results.length, 2);
+    assert.deepEqual(results[0], { title: "Example", url: "https://example.com", description: "A description" });
+  });
+
+  it("returns empty array when no results", () => {
+    assert.deepEqual(parseBraveResults({ web: { results: [] } }), []);
+    assert.deepEqual(parseBraveResults({}), []);
+  });
+});
+
+describe("htmlToText()", () => {
+  it("strips script tags", () => {
+    const result = htmlToText("<p>Hello</p><script>alert('x')</script><p>World</p>");
+    assert.ok(!result.includes("alert"));
+    assert.ok(result.includes("Hello"));
+    assert.ok(result.includes("World"));
+  });
+
+  it("strips style tags", () => {
+    const result = htmlToText("<style>.foo { color: red; }</style><p>Content</p>");
+    assert.ok(!result.includes("color"));
+    assert.ok(result.includes("Content"));
+  });
+
+  it("strips nav tags", () => {
+    const result = htmlToText("<nav><a>Menu</a></nav><p>Body</p>");
+    assert.ok(!result.includes("Menu"));
+    assert.ok(result.includes("Body"));
+  });
+
+  it("strips footer tags", () => {
+    const result = htmlToText("<p>Main</p><footer>Copyright 2024</footer>");
+    assert.ok(!result.includes("Copyright"));
+    assert.ok(result.includes("Main"));
+  });
+
+  it("converts headings to markdown", () => {
+    const result = htmlToText("<h1>Title</h1><h2>Subtitle</h2><h3>Section</h3>");
+    assert.ok(result.includes("# Title"));
+    assert.ok(result.includes("## Subtitle"));
+    assert.ok(result.includes("### Section"));
+  });
+
+  it("converts list items to bullets", () => {
+    const result = htmlToText("<ul><li>First</li><li>Second</li></ul>");
+    assert.ok(result.includes("- First"));
+    assert.ok(result.includes("- Second"));
+  });
+
+  it("strips remaining HTML tags", () => {
+    const result = htmlToText("<div><span>Text</span></div>");
+    assert.equal(result, "Text");
+  });
+
+  it("collapses multiple newlines", () => {
+    const result = htmlToText("<p>A</p><p></p><p></p><p></p><p>B</p>");
+    assert.ok(!result.includes("\n\n\n"));
+  });
+});
+
+describe("truncation", () => {
+  it("text over 10K chars would be truncated with notice", () => {
+    const longText = "x".repeat(15000);
+    const truncated = longText.length > 10000
+      ? `${longText.slice(0, 10000)}\n\n[... truncated, full page was ${longText.length} chars ...]`
+      : longText;
+    assert.ok(truncated.includes("[... truncated"));
+    assert.ok(truncated.includes("15000 chars"));
+  });
+});

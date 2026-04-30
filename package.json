@@ -1,0 +1,53 @@
+{
+  "name": "pre-sales-agent",
+  "version": "0.1.0",
+  "description": "Open-source starter for AI-powered pre-sales agents that turn RFPs and briefs into estimates, clarification questions, and proposal drafts.",
+  "private": false,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "seed": "tsx scripts/seed-knowledge-base.ts",
+    "test": "tsx --test src/**/*.test.ts",
+    "audit:high": "npm audit --audit-level=high",
+    "check:mcp-isolation": "rg \"from ['\\\"]\\.\\./\" src/mcp-servers && exit 1 || exit 0"
+  },
+  "keywords": [
+    "agents",
+    "pre-sales",
+    "rfp",
+    "slack",
+    "mcp",
+    "claude",
+    "vercel"
+  ],
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "latest",
+    "@anthropic-ai/sdk": "latest",
+    "@modelcontextprotocol/sdk": "latest",
+    "@pinecone-database/pinecone": "latest",
+    "@slack/bolt": "latest",
+    "@slack/web-api": "latest",
+    "bullmq": "latest",
+    "dotenv": "latest",
+    "express": "latest",
+    "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
+    "ioredis": "latest",
+    "mammoth": "^1.11.0",
+    "open": "^11.0.0",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@types/express": "latest",
+    "@types/node": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  }
+}

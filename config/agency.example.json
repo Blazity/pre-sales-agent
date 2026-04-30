@@ -1,0 +1,21 @@
+{
+  "name": "Example Digital Studio",
+  "positioning": "A senior product engineering team for complex web platforms.",
+  "voice": {
+    "tone": "direct, practical, senior",
+    "forbiddenPhrases": ["cutting-edge", "best-in-class", "synergy"]
+  },
+  "brand": {
+    "primaryColor": "#2563EB",
+    "accentColor": "#F97316",
+    "textColor": "#111827"
+  },
+  "commercials": {
+    "currency": "EUR",
+    "aiProductivityAdjustment": "Apply a conservative productivity adjustment to development tasks only.",
+    "pageBudget": "5-12 pages"
+  },
+  "research": {
+    "allowedDomains": ["example.com"]
+  }
+}
