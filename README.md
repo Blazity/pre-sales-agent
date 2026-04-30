@@ -50,3 +50,7 @@ npm test
 ## License
 
 MIT
+
+## Community
+
+See `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, and `CODE_OF_CONDUCT.md` before opening issues or pull requests.

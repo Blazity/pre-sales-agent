@@ -2,7 +2,7 @@
 
 Please do not report security vulnerabilities in public issues.
 
-For now, report security concerns privately to the repository maintainer. The public contact channel will be finalized before the first public release.
+Report security concerns through GitHub private vulnerability reporting for this repository. If private vulnerability reporting is unavailable, contact the maintainers through the Blazity organization profile and do not disclose details publicly until a maintainer confirms the report path.
 
 ## Supported Versions
 
