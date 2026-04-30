@@ -26,6 +26,7 @@
     "check:vercel-sandbox": "tsx scripts/check-vercel-sandbox.ts",
     "test": "tsx --test src/**/*.test.ts",
     "audit:high": "npm audit --audit-level=high",
+    "scan:secrets": "tsx scripts/scan-secrets.ts",
     "check:mcp-isolation": "rg \"from ['\\\"]\\.\\./\" src/mcp-servers && exit 1 || exit 0"
   },
   "keywords": [

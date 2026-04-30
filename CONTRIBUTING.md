@@ -9,6 +9,7 @@ npm install
 npm run typecheck
 npm test
 npm run audit:high
+npm run scan:secrets
 npm run check:mcp-isolation
 ```
 
