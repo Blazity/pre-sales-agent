@@ -11,48 +11,50 @@ function progressKey(jobId: string) {
   return `job:${jobId}:progress`;
 }
 
+export async function processEstimationJob(jobData: EstimationJob, name = "run-estimation") {
+  const jobId = jobData.jobId || "unknown";
+  const log = logger.withContext({ jobId });
+  const redis = getRedis();
+  const jobLog = createJobLogger(jobId, redis);
+
+  log.info("Processing estimation job", { name });
+
+  const estimationName = (jobData.rfpText ?? jobData.messageText ?? "Untitled").slice(0, 60);
+
+  // Initialize progress hash before orchestrator so admin/status views can see early failures.
+  await redis.hset(progressKey(jobId), {
+    step: "0",
+    stepName: "Initializing",
+    status: "running",
+    startedAt: new Date().toISOString(),
+    lastActivityAt: new Date().toISOString(),
+    turnsCompleted: "0",
+    channelId: jobData.channelId,
+    threadTs: jobData.threadTs,
+    estimationName,
+  });
+  await redis.expire(progressKey(jobId), PROGRESS_TTL);
+  await jobLog.system("Job started", { estimationName });
+
+  try {
+    await runEstimationWorkflow(jobData);
+  } catch (err) {
+    await redis.hset(progressKey(jobId), {
+      status: "failed",
+      finishedAt: new Date().toISOString(),
+    });
+    await jobLog.system("Job failed", { error: err instanceof Error ? err.message : String(err) });
+    throw err;
+  }
+}
+
 /** Start the BullMQ worker that processes estimation jobs. */
 export function startWorker() {
   const worker = new Worker<EstimationJob>(
     "estimations",
     async (job: Job<EstimationJob>) => {
       const jobId = job.data.jobId || job.id || "unknown";
-      const log = logger.withContext({ jobId });
-      const redis = getRedis();
-      const jobLog = createJobLogger(jobId, redis);
-
-      log.info("Processing estimation job", { name: job.name });
-
-      const estimationName = (job.data.rfpText ?? job.data.messageText ?? "Untitled").slice(0, 60);
-
-      // Initialize progress hash before orchestrator — ensures visibility even on early failures
-      await redis.hset(progressKey(jobId), {
-        step: "0",
-        stepName: "Initializing",
-        status: "running",
-        startedAt: new Date().toISOString(),
-        lastActivityAt: new Date().toISOString(),
-        turnsCompleted: "0",
-        channelId: job.data.channelId,
-        threadTs: job.data.threadTs,
-        estimationName,
-      });
-      await redis.expire(progressKey(jobId), PROGRESS_TTL);
-      await jobLog.system("Job started", { estimationName });
-
-      try {
-        await runEstimationWorkflow({
-          ...job.data,
-          jobId,
-        });
-      } catch (err) {
-        await redis.hset(progressKey(jobId), {
-          status: "failed",
-          finishedAt: new Date().toISOString(),
-        });
-        await jobLog.system("Job failed", { error: err instanceof Error ? err.message : String(err) });
-        throw err;
-      }
+      await processEstimationJob({ ...job.data, jobId }, job.name);
     },
     {
       connection: getRedis(),

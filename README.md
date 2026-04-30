@@ -29,6 +29,8 @@ npm test
 
 Fill `.env` with provider credentials before running the application.
 
+Use `npm run dev:vercel` for the default Vercel Functions + Vercel Queues path, or set `JOB_QUEUE_PROVIDER=bullmq` and run `npm run dev` for the local Express/BullMQ fallback.
+
 ## Documentation
 
 - `docs/architecture.md` explains the agent pipeline and MCP boundaries.

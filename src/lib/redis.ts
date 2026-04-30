@@ -1,11 +1,10 @@
 import IORedis from "ioredis";
-import { env } from "./env.js";
 
 let client: IORedis | null = null;
 
 export function getRedis(): IORedis {
   if (!client) {
-    client = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null });
+    client = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", { maxRetriesPerRequest: null });
   }
   return client;
 }

@@ -1,40 +1,16 @@
-import { describe, it, mock, beforeEach } from "node:test";
+import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-
-// ── Unit tests for the producer enqueue logic ─────────────────────────────────
-// We test the job payload shape and ID generation without connecting to Redis.
-
-interface JobPayload {
-  rfpText: string;
-  channelId: string;
-  threadTs: string;
-  jobId: string;
-  clarificationAnswers?: string;
-}
-
-// Replicate the ID generation logic from producer.ts
-function generateJobId(): string {
-  return `est_${Date.now()}`;
-}
-
-// Replicate the payload construction logic from enqueueEstimation()
-function buildJobPayload(
-  input: Omit<JobPayload, "jobId">
-): JobPayload {
-  return {
-    ...input,
-    jobId: generateJobId(),
-  };
-}
+import {
+  buildJobPayload,
+  generateJobId,
+  resolveQueueProvider,
+} from "./producer.js";
 
 describe("Queue producer", () => {
   describe("generateJobId()", () => {
     it("produces an est_<timestamp> ID", () => {
-      const id = generateJobId();
-      assert.ok(id.startsWith("est_"));
-      const ts = parseInt(id.slice(4), 10);
-      assert.ok(!isNaN(ts));
-      assert.ok(ts > 0);
+      const id = generateJobId(1700000000000);
+      assert.equal(id, "est_1700000000000");
     });
 
     it("generates unique IDs on successive calls", async () => {
@@ -52,11 +28,11 @@ describe("Queue producer", () => {
         channelId: "C123",
         threadTs: "1700000000.000000",
       };
-      const payload = buildJobPayload(input);
+      const payload = buildJobPayload(input, 1700000000000);
       assert.equal(payload.rfpText, input.rfpText);
       assert.equal(payload.channelId, input.channelId);
       assert.equal(payload.threadTs, input.threadTs);
-      assert.ok(payload.jobId.startsWith("est_"));
+      assert.equal(payload.jobId, "est_1700000000000");
     });
 
     it("includes clarificationAnswers when provided", () => {
@@ -65,7 +41,7 @@ describe("Queue producer", () => {
         channelId: "C123",
         threadTs: "1700000000.000000",
         clarificationAnswers: "Budget is 50k EUR",
-      });
+      }, 1700000000000);
       assert.equal(payload.clarificationAnswers, "Budget is 50k EUR");
     });
 
@@ -74,8 +50,23 @@ describe("Queue producer", () => {
         rfpText: "Some RFP",
         channelId: "C123",
         threadTs: "1700000000.000000",
-      });
+      }, 1700000000000);
       assert.equal(payload.clarificationAnswers, undefined);
+    });
+  });
+
+  describe("resolveQueueProvider()", () => {
+    it("uses Vercel Queues on Vercel by default", () => {
+      assert.equal(resolveQueueProvider({ VERCEL: "1" }), "vercel");
+    });
+
+    it("uses BullMQ locally by default", () => {
+      assert.equal(resolveQueueProvider({}), "bullmq");
+    });
+
+    it("allows explicit provider override", () => {
+      assert.equal(resolveQueueProvider({ JOB_QUEUE_PROVIDER: "bullmq", VERCEL: "1" }), "bullmq");
+      assert.equal(resolveQueueProvider({ JOB_QUEUE_PROVIDER: "vercel" }), "vercel");
     });
   });
 

@@ -18,6 +18,13 @@ Slack RFP or brief
 
 MCP servers in `src/mcp-servers/` run as standalone stdio processes. They must not import from application internals. Each server loads its own environment configuration and returns MCP-compatible content blocks.
 
-## Current Runtime
+## Runtime
 
-The copied implementation currently uses Express, BullMQ, and Redis. The public starter target is Vercel-first: Vercel Functions for ingress, Vercel Queues or Vercel Workflow for durable work, and Vercel Sandbox for isolated agent workspaces.
+The public starter is Vercel-first:
+
+- Vercel Functions handle health checks and Slack Events API ingress from the `api/` directory.
+- Vercel Queues is the default job provider on Vercel.
+- Vercel Sandbox is the default agent workspace provider on Vercel.
+- Redis-style state is still used for progress and admin views; use a Vercel Marketplace Redis provider such as Upstash.
+
+The original Express, BullMQ, and Redis runtime remains as the local/self-hosted fallback.
