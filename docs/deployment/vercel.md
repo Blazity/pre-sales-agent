@@ -10,7 +10,7 @@ Default service mapping:
 
 - Slack ingress: Vercel Functions.
 - Long-running jobs: Vercel Queues, topic `estimations`.
-- Agent workspace isolation: Vercel Sandbox, selected by `AGENT_WORKSPACE_PROVIDER=vercel-sandbox`.
+- Agent workspace isolation: Vercel Sandbox.
 - Redis-style state: Vercel Marketplace Redis, such as Upstash Redis.
 - Generated documents: Google Workspace by default.
 
@@ -22,7 +22,7 @@ Default service mapping:
 
 ## Required Vercel Environment Variables
 
-The Deploy Button asks Vercel to collect these values:
+The Deploy Button asks Vercel to collect only the values needed for a first working deployment:
 
 | Variable | Purpose |
 |---|---|
@@ -39,7 +39,7 @@ The Deploy Button asks Vercel to collect these values:
 | `VOYAGE_API_KEY` | Embeddings for knowledge-base search |
 | `REDIS_URL` | Progress state and admin/job logs, use a Vercel Marketplace Redis provider |
 
-The Deploy Button also pre-fills safe defaults for:
+The app uses these runtime defaults when the variables are not set. Set them manually in Vercel only when changing the starter behavior:
 
 | Variable | Default |
 |---|---|
@@ -47,15 +47,12 @@ The Deploy Button also pre-fills safe defaults for:
 | `VERCEL_QUEUE_TOPIC` | `estimations` |
 | `AGENT_WORKSPACE_PROVIDER` | `vercel-sandbox` |
 | `PINECONE_INDEX` | `estimations` |
-| `AGENCY_PROFILE_PATH` | `config/agency.example.json` |
-| `AGENCY_NAME` | `Example Digital Studio` |
-| `AGENCY_ACCENT_COLOR` | `#F97316` |
-| `CASE_STUDIES_BASE_URL` | `https://example.com` |
-| `NODE_ENV` | `production` |
+| `AGENCY_PROFILE_PATH` | Built-in starter agency profile |
+| `NODE_ENV` | Vercel-provided runtime context |
 
-Optional integrations can be added later in the Vercel project settings: `BRAVE_SEARCH_API_KEY`, `FIGMA_API_KEY`, `SLACK_OPS_CHANNEL_ID`, `GDRIVE_OUTPUT_FOLDER_ID`, `GDRIVE_ESTIMATIONS_FOLDER_ID`, and `GDRIVE_PROPOSALS_FOLDER_ID`.
+The Deploy Button intentionally does not ask for optional, admin, seeding, or branding variables. Add these later in the Vercel project settings only when needed: `BRAVE_SEARCH_API_KEY`, `FIGMA_API_KEY`, `SLACK_OPS_CHANNEL_ID`, `GDRIVE_OUTPUT_FOLDER_ID`, `GDRIVE_ESTIMATIONS_FOLDER_ID`, `GDRIVE_PROPOSALS_FOLDER_ID`, `AGENCY_PROFILE_PATH`, `AGENCY_NAME`, `AGENCY_ACCENT_COLOR`, and `CASE_STUDIES_BASE_URL`.
 
-`VERCEL_QUEUE_TOPIC` must match the queue trigger topic in `vercel.json`. The starter uses `estimations` in both places.
+`VERCEL_QUEUE_TOPIC` must match the queue trigger topic in `vercel.json` only if you override it. The starter uses `estimations` in both places.
 
 ## Post-Deploy Setup
 

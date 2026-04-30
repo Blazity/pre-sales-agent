@@ -155,7 +155,7 @@ The seeding script creates the Pinecone index if it does not exist and the API k
 
 ## 6. Configure Agency Profile
 
-Use the public starter profile first:
+The app uses the public starter profile if no profile environment variables are set. These values are useful only when customizing templates, seed scripts, or a real agency profile:
 
 ```text
 AGENCY_PROFILE_PATH=config/agency.example.json
@@ -189,7 +189,7 @@ Vercel defaults:
 | `AGENT_WORKSPACE_PROVIDER` | `vercel-sandbox` |
 | `NODE_ENV` | `production` |
 
-`VERCEL_QUEUE_TOPIC` must match the topic in `vercel.json`.
+The Deploy Button does not ask for these defaults. `VERCEL_QUEUE_TOPIC` must match the topic in `vercel.json` only if you override the queue topic.
 
 ## 8. Test the Workflow
 
