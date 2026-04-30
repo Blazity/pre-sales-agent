@@ -41,6 +41,7 @@ npm test
 ## Documentation
 
 - `docs/architecture.md` explains the agent pipeline and MCP boundaries.
+- `docs/prompt-architecture.md` explains the orchestration prompt, boundaries, and review gates.
 - `docs/setup.md` walks through a fresh provider setup.
 - `docs/demo.md` provides a public demo runbook and sample script.
 - `docs/configuration.md` explains agency profile and environment configuration.

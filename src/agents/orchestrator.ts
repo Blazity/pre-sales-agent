@@ -813,7 +813,7 @@ REVIEW:
 Read back the document using docs_get_document. Check EVERY item below. If ANY check fails, fix it before proceeding.
 
 CONTENT CHECKS:
-1. About Us: Names specific credentials (Deloitte Fast 50)? Partners listed only if relevant to tech stack? Similar projects relevant to this RFP (or strongest client references if none found)? No partners listed as clients? Links in plain URL format (not markdown)? No "extensive experience" or "proven track record"?
+1. About Us: Names specific configured credentials? Partners listed only if relevant to tech stack? Similar projects relevant to this RFP (or strongest client references if none found)? No partners listed as clients? Links in plain URL format (not markdown)? No "extensive experience" or "proven track record"?
 2. Goals: 5-7 concrete goals with bold key phrases? Specific to this project?
 3. Assumptions: Only genuine unknowns the client hasn't addressed? No assumptions contradicting client answers?
 4. Risks: Project-specific technical risks only? No "first integration with X", no "tight timeline", no "resource availability"? 3-5 rows?
