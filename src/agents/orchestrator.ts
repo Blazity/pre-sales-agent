@@ -3,9 +3,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { logger } from "../lib/logger.js";
-import { getRedis } from "../lib/redis.js";
-import { registerJob, unregisterJob } from "../lib/job-registry.js";
-import { createJobLogger } from "../lib/job-logger.js";
+import { createWorkflowReporter, type WorkflowReporter } from "../lib/workflow-reporter.js";
 import { buildAgencyIdentityPrompt, loadAgencyProfile } from "../config/agency-profile.js";
 
 
@@ -37,8 +35,16 @@ function detectStep(toolName: string, currentStep: number): number {
   return mapped && mapped > currentStep ? mapped : currentStep;
 }
 
-function progressKey(jobId: string) {
-  return `job:${jobId}:progress`;
+export async function safeReport(jobId: string, operation: string, report: () => Promise<void>): Promise<void> {
+  try {
+    await report();
+  } catch (err) {
+    logger.warn("Workflow reporter failed", {
+      jobId,
+      operation,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 export interface EstimationJob {
@@ -73,7 +79,10 @@ export interface EstimationJob {
 }
 
 /** Run the full estimation pipeline: analysis → clarification → offer. */
-export async function runEstimationWorkflow(job: EstimationJob): Promise<void> {
+export async function runEstimationWorkflow(
+  job: EstimationJob,
+  reporter: WorkflowReporter = createWorkflowReporter(job.jobId ?? "unknown")
+): Promise<void> {
   const { jobId, channelId, threadTs, clarificationAnswers } = job;
 
   const requiredEnv = [
@@ -855,9 +864,10 @@ text: "✅ Estimation complete — offer and estimation ready"
 
 ${skipInstructions.length > 0 ? `\nOVERRIDES:\n${skipInstructions.join("\n")}\n` : ""}Begin now.`;
 
-  const redis = getRedis();
-  const controller = registerJob(jobId);
-  const jobLog = createJobLogger(jobId, redis);
+  const controller = new AbortController();
+  await safeReport(jobId, "system", () => reporter.system("Job started", {
+    estimationName: (job.rfpText ?? job.messageText ?? "Untitled").slice(0, 60),
+  }));
 
   let turns = 0;
   let braveSearchCalls = 0;
@@ -964,11 +974,9 @@ ${skipInstructions.length > 0 ? `\nOVERRIDES:\n${skipInstructions.join("\n")}\n`
     })) {
       turns++;
 
-      // Update turns and activity timestamp
-      await redis.hset(progressKey(jobId), {
-        turnsCompleted: String(turns),
-        lastActivityAt: new Date().toISOString(),
-      });
+      await safeReport(jobId, "progress", () => reporter.progress({
+        turnsCompleted: turns,
+      }));
 
       if (message.type === "assistant") {
         const blocks = message.message?.content;
@@ -980,18 +988,18 @@ ${skipInstructions.length > 0 ? `\nOVERRIDES:\n${skipInstructions.join("\n")}\n`
         if (Array.isArray(blocks)) {
           for (const block of blocks) {
             if (block.type === "text" && block.text) {
-              await jobLog.agentText(block.text);
+              await safeReport(jobId, "agentText", () => reporter.agentText(block.text));
             } else if (block.type === "tool_use") {
-              await jobLog.toolCall(block.name, block.input);
+              await safeReport(jobId, "toolCall", () => reporter.toolCall(block.name, block.input));
               if (block.name === "mcp__web-research__web_search") braveSearchCalls++;
               const newStep = detectStep(block.name, currentStep);
               if (newStep > currentStep) {
                 currentStep = newStep;
-                await redis.hset(progressKey(jobId), {
-                  step: String(currentStep),
+                await safeReport(jobId, "progress", () => reporter.progress({
+                  step: currentStep,
                   stepName: STEP_NAMES[currentStep],
-                });
-                await jobLog.system(`Step changed to ${STEP_NAMES[currentStep]}`);
+                }));
+                await safeReport(jobId, "system", () => reporter.system(`Step changed to ${STEP_NAMES[currentStep]}`));
               }
             }
           }
@@ -1006,7 +1014,7 @@ ${skipInstructions.length > 0 ? `\nOVERRIDES:\n${skipInstructions.join("\n")}\n`
                 : Array.isArray(block.content)
                   ? (block.content as Array<{ text?: string }>).map((c) => c.text ?? "").join("")
                   : JSON.stringify(block.content);
-              await jobLog.toolResult(block.tool_use_id ?? "unknown", text);
+              await safeReport(jobId, "toolResult", () => reporter.toolResult(block.tool_use_id ?? "unknown", text));
             }
           }
         }
@@ -1020,50 +1028,44 @@ ${skipInstructions.length > 0 ? `\nOVERRIDES:\n${skipInstructions.join("\n")}\n`
 
     const costBrave = braveSearchCalls * BRAVE_COST_PER_QUERY;
     const costTotal = resultCostUsd + costBrave;
-    await redis.hset(progressKey(jobId), {
-      costClaudeUsd: resultCostUsd.toFixed(4),
-      costBraveUsd: costBrave.toFixed(4),
-      costTotalUsd: costTotal.toFixed(4),
-      inputTokens: String(resultInputTokens),
-      outputTokens: String(resultOutputTokens),
-    });
+    await safeReport(jobId, "progress", () => reporter.progress({
+      costClaudeUsd: Number(resultCostUsd.toFixed(4)),
+      costBraveUsd: Number(costBrave.toFixed(4)),
+      costTotalUsd: Number(costTotal.toFixed(4)),
+      inputTokens: resultInputTokens,
+      outputTokens: resultOutputTokens,
+    }));
 
-    const finishedAt = new Date().toISOString();
     if (controller.signal.aborted) {
-      await redis.hset(progressKey(jobId), { status: "cancelled", finishedAt });
-      await jobLog.system("Job cancelled by admin");
+      await safeReport(jobId, "progress", () => reporter.progress({ status: "cancelled" }));
+      await safeReport(jobId, "system", () => reporter.system("Job cancelled"));
       timer.end({ turns, cancelled: true });
       return;
     }
 
-    await redis.hset(progressKey(jobId), { status: "completed", finishedAt });
-    await jobLog.system("Job completed", { turns });
+    await safeReport(jobId, "progress", () => reporter.progress({ status: "completed" }));
+    await safeReport(jobId, "system", () => reporter.system("Job completed", { turns }));
     timer.end({ turns });
   } catch (err) {
-    try {
-      const costBrave = braveSearchCalls * BRAVE_COST_PER_QUERY;
-      const costTotal = resultCostUsd + costBrave;
-      await redis.hset(progressKey(jobId), {
-        costClaudeUsd: resultCostUsd.toFixed(4),
-        costBraveUsd: costBrave.toFixed(4),
-        costTotalUsd: costTotal.toFixed(4),
-        inputTokens: String(resultInputTokens),
-        outputTokens: String(resultOutputTokens),
-      });
-    } catch { /* best-effort */ }
+    const costBrave = braveSearchCalls * BRAVE_COST_PER_QUERY;
+    const costTotal = resultCostUsd + costBrave;
+    await safeReport(jobId, "progress", () => reporter.progress({
+      costClaudeUsd: Number(resultCostUsd.toFixed(4)),
+      costBraveUsd: Number(costBrave.toFixed(4)),
+      costTotalUsd: Number(costTotal.toFixed(4)),
+      inputTokens: resultInputTokens,
+      outputTokens: resultOutputTokens,
+    }));
 
-    const finishedAt = new Date().toISOString();
     if (controller.signal.aborted) {
-      await redis.hset(progressKey(jobId), { status: "cancelled", finishedAt });
-      await jobLog.system("Job cancelled by admin");
+      await safeReport(jobId, "progress", () => reporter.progress({ status: "cancelled" }));
+      await safeReport(jobId, "system", () => reporter.system("Job cancelled"));
       timer.end({ turns, cancelled: true });
       return;
     }
-    await redis.hset(progressKey(jobId), { status: "failed", finishedAt });
-    await jobLog.system("Job failed", { error: err instanceof Error ? err.message : String(err) });
+    await safeReport(jobId, "progress", () => reporter.progress({ status: "failed" }));
+    await safeReport(jobId, "system", () => reporter.system("Job failed", { error: err instanceof Error ? err.message : String(err) }));
     timer.fail(err);
     throw err;
-  } finally {
-    unregisterJob(jobId);
   }
 }

@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import type { EstimationJob } from "./orchestrator.js";
+import { safeReport, type EstimationJob, type runEstimationWorkflow } from "./orchestrator.js";
+import type { WorkflowReporter } from "../lib/workflow-reporter.js";
 
 // ── Type-shape tests (no I/O, no mocks needed) ────────────────────────────────
 // These ensure the EstimationJob interface contract is correct at compile time
@@ -15,6 +16,40 @@ function makeJob(overrides: Partial<EstimationJob> = {}): EstimationJob {
     ...overrides,
   };
 }
+
+type WorkflowReporterArgIsSupported =
+  Extract<Parameters<typeof runEstimationWorkflow>["length"], 2> extends never
+    ? false
+    : Parameters<typeof runEstimationWorkflow>[1] extends WorkflowReporter | undefined
+      ? true
+      : false;
+const _workflowReporterArgIsSupported: WorkflowReporterArgIsSupported = true;
+
+describe("safeReport", () => {
+  it("does not throw and logs job context when the reporter sink fails", async () => {
+    const originalWarn = console.warn;
+    const warnings: string[] = [];
+    console.warn = (message?: unknown) => {
+      warnings.push(String(message));
+    };
+
+    try {
+      await assert.doesNotReject(
+        safeReport("est_1234567890", "progress", async () => {
+          throw new Error("sink unavailable");
+        })
+      );
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    assert.equal(warnings.length, 1);
+    const warning = JSON.parse(warnings[0]) as { jobId?: string; operation?: string; error?: string };
+    assert.equal(warning.jobId, "est_1234567890");
+    assert.equal(warning.operation, "progress");
+    assert.equal(warning.error, "sink unavailable");
+  });
+});
 
 describe("EstimationJob", () => {
   it("accepts a valid job with all required fields", () => {
