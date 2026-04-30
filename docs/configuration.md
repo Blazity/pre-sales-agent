@@ -28,6 +28,8 @@ By default, the app uses the starter agency profile. For a real agency, copy `co
 
 See `docs/setup.md` for provider setup steps and `docs/deployment/vercel.md` for Vercel-specific defaults.
 
+Run `npm run doctor:first-launch -- --health-url https://<your-vercel-domain>` after setting first-launch environment variables to verify local env presence, Vercel health, Google access, Slack auth, and Pinecone access.
+
 ## Template Generation
 
 Run `npm run setup:google-templates` after configuring Google OAuth if you do not already have proposal and estimation templates. The generated files are created in the configured Drive folder and remain editable by the adopter.

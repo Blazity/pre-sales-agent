@@ -1,6 +1,6 @@
 # Setup Guide
 
-This guide starts from a fresh clone or a Deploy Button install and gets the starter to a working Slack-to-Google-Workspace estimation flow.
+This guide is the provider setup reference. For the shortest deploy-first path to a working Slack run, start with `docs/first-launch.md`.
 
 ## Prerequisites
 
