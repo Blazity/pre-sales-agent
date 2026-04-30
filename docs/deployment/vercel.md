@@ -9,16 +9,15 @@ Use the Deploy Button from the README to clone the public repository into the ad
 Default service mapping:
 
 - Slack ingress: Vercel Functions.
-- Long-running jobs: Vercel Queues, topic `estimations`.
+- Long-running jobs and observability: Vercel Workflow.
 - Agent workspace isolation: Vercel Sandbox.
-- Redis-style state: Vercel Marketplace Redis, such as Upstash Redis.
 - Generated documents: Google Workspace by default.
 
 ## Routes
 
 - `api/health.ts` exposes a Vercel health endpoint.
 - `api/slack/events.ts` mounts the Slack Bolt receiver for Slack Events API traffic.
-- `api/queues/estimations.ts` consumes Vercel Queue messages and runs the estimation workflow.
+- `workflows/estimation.ts` runs the durable estimation workflow and records step observability in Vercel Workflow.
 
 ## Required Vercel Environment Variables
 
@@ -37,22 +36,17 @@ The Deploy Button asks Vercel to collect only the values needed for a first work
 | `GSHEETS_TEMPLATE_ID` | Google Sheets estimation template |
 | `PINECONE_API_KEY` | Knowledge-base vector search |
 | `VOYAGE_API_KEY` | Embeddings for knowledge-base search |
-| `REDIS_URL` | Progress state and admin/job logs, use a Vercel Marketplace Redis provider |
 
 The app uses these runtime defaults when the variables are not set. Set them manually in Vercel only when changing the starter behavior:
 
 | Variable | Default |
 |---|---|
-| `JOB_QUEUE_PROVIDER` | `vercel` |
-| `VERCEL_QUEUE_TOPIC` | `estimations` |
 | `AGENT_WORKSPACE_PROVIDER` | `vercel-sandbox` |
 | `PINECONE_INDEX` | `estimations` |
 | `AGENCY_PROFILE_PATH` | Built-in starter agency profile |
 | `NODE_ENV` | Vercel-provided runtime context |
 
-The Deploy Button intentionally does not ask for optional, admin, seeding, or branding variables. Add these later in the Vercel project settings only when needed: `BRAVE_SEARCH_API_KEY`, `FIGMA_API_KEY`, `SLACK_OPS_CHANNEL_ID`, `GDRIVE_OUTPUT_FOLDER_ID`, `GDRIVE_ESTIMATIONS_FOLDER_ID`, `GDRIVE_PROPOSALS_FOLDER_ID`, `AGENCY_PROFILE_PATH`, `AGENCY_NAME`, `AGENCY_ACCENT_COLOR`, and `CASE_STUDIES_BASE_URL`.
-
-`VERCEL_QUEUE_TOPIC` must match the queue trigger topic in `vercel.json` only if you override it. The starter uses `estimations` in both places.
+The Deploy Button intentionally does not ask for optional, seeding, or branding variables. Add these later in the Vercel project settings only when needed: `BRAVE_SEARCH_API_KEY`, `FIGMA_API_KEY`, `SLACK_OPS_CHANNEL_ID`, `GDRIVE_OUTPUT_FOLDER_ID`, `GDRIVE_ESTIMATIONS_FOLDER_ID`, `GDRIVE_PROPOSALS_FOLDER_ID`, `AGENCY_PROFILE_PATH`, `AGENCY_NAME`, `AGENCY_ACCENT_COLOR`, and `CASE_STUDIES_BASE_URL`.
 
 ## Post-Deploy Setup
 
@@ -64,15 +58,13 @@ After Vercel creates the project:
 4. Install or reinstall the Slack app after changing scopes or request URLs.
 5. Share the configured Google Drive folders and templates with the Google OAuth account used by the app.
 6. Seed knowledge-base data with `npm run seed` from a local checkout that has the same Pinecone, Voyage, and Google env vars.
-7. Send a short test RFP in Slack with `!estimate <brief>` and confirm a queue message is processed.
+7. Send a short test RFP in Slack with `!estimate <brief>` and confirm a Workflow run starts in Vercel.
 
 Use `docs/setup.md` for provider-specific setup details and required Slack scopes.
 
-## Local Fallback
+## Local Development
 
-BullMQ remains available for local development or self-hosted runs. Set `JOB_QUEUE_PROVIDER=bullmq` and run `npm run dev` with Redis.
-
-For Vercel-style local development in an adopter's own project, use the Vercel CLI against their cloned project and environment. This is optional for the OSS repository itself.
+Use the Vercel CLI against the cloned project and environment. No separate database or local queue worker is required.
 
 ```bash
 npm run dev:vercel

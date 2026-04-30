@@ -5,7 +5,7 @@ const { App, ExpressReceiver, LogLevel } = _require("@slack/bolt") as typeof imp
 import { WebClient } from "@slack/web-api";
 
 import { env } from "../lib/env.js";
-import { enqueueEstimation } from "../queue/producer.js";
+import { startEstimationWorkflow } from "../workflows/launcher.js";
 import { logger } from "../lib/logger.js";
 import { extractAllDriveLinks } from "../lib/google-drive.js";
 
@@ -115,7 +115,7 @@ export function createSlackApp() {
     const driveLinks = extractAllDriveLinks(msg.text);
     const hasDriveLinks = driveLinks.length > 0;
 
-    let jobPayload: Parameters<typeof enqueueEstimation>[0];
+    let jobPayload: Parameters<typeof startEstimationWorkflow>[0];
 
     if (hasFiles || hasDriveLinks) {
       const hasFolderLink = driveLinks.some((l) => l.type === "folder");
@@ -219,10 +219,11 @@ export function createSlackApp() {
       };
     }
 
-    const jobId = await enqueueEstimation(jobPayload);
+    const { jobId, runId } = await startEstimationWorkflow(jobPayload);
 
-    logger.info("Estimation job enqueued", {
+    logger.info("Estimation workflow started", {
       jobId,
+      runId,
       user: msg.user,
       channel: msg.channel,
       hasFiles,
@@ -264,14 +265,15 @@ export function createSlackApp() {
       ],
     });
 
-    const jobId = await enqueueEstimation({
+    const { jobId, runId } = await startEstimationWorkflow({
       rfpText,
       channelId: command.channel_id,
       threadTs: posted.ts!,
     });
 
-    logger.info("Estimation job enqueued via slash command", {
+    logger.info("Estimation workflow started via slash command", {
       jobId,
+      runId,
       user: command.user_id,
       channel: command.channel_id,
       rfpLength: rfpText.length,

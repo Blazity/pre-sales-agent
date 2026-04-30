@@ -17,7 +17,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "workflow validate --strict && tsc",
     "typecheck": "tsc --noEmit",
     "dev": "npx vercel dev",
     "dev:vercel": "npx vercel dev",
@@ -44,12 +44,9 @@
     "@pinecone-database/pinecone": "latest",
     "@slack/bolt": "latest",
     "@slack/web-api": "latest",
-    "@vercel/queue": "^0.1.6",
     "@vercel/sandbox": "^1.10.0",
     "dotenv": "latest",
     "express": "latest",
-    "express-rate-limit": "^8.2.1",
-    "helmet": "^8.1.0",
     "mammoth": "^1.11.0",
     "open": "^11.0.0",
     "workflow": "^4.2.4",

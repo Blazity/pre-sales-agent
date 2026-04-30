@@ -20,10 +20,6 @@ export const env = {
   PINECONE_INDEX: process.env.PINECONE_INDEX ?? "estimations",
   VOYAGE_API_KEY: require("VOYAGE_API_KEY"),
   SLACK_OPS_CHANNEL_ID: process.env.SLACK_OPS_CHANNEL_ID,
-  REDIS_URL: process.env.REDIS_URL ?? "redis://localhost:6379",
   PORT: parseInt(process.env.PORT ?? "3000"),
   NODE_ENV: process.env.NODE_ENV ?? "development",
-  ADMIN_USER: process.env.ADMIN_USER,
-  ADMIN_PASS: process.env.ADMIN_PASS,
-  ADMIN_ALLOWED_IPS: process.env.ADMIN_ALLOWED_IPS,
 };

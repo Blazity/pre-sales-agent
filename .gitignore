@@ -9,5 +9,7 @@ workspace/
 *.tsbuildinfo
 .seed-state.json
 .vercel/
+.well-known/
+.workflow-data/
 past-estimates/
 coverage/

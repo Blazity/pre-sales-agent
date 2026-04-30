@@ -8,7 +8,7 @@ This guide starts from a fresh clone or a Deploy Button install and gets the sta
 - A Slack workspace where you can create and install apps.
 - A Google Cloud project with OAuth credentials.
 - Anthropic, Pinecone, and Voyage API keys.
-- A Vercel project with a Redis provider, such as Upstash Redis from the Vercel Marketplace.
+- A Vercel project with Workflow enabled by the deployment.
 
 ## 1. Verify the Clone
 
@@ -81,7 +81,7 @@ Create or choose a root Drive folder and set:
 | Variable | Value |
 |---|---|
 | `GDRIVE_ROOT_FOLDER_ID` | Folder where each estimation workspace is created |
-| `GDRIVE_OUTPUT_FOLDER_ID` | Optional override for manual/admin test runs |
+| `GDRIVE_OUTPUT_FOLDER_ID` | Optional override for manual test runs |
 | `GDRIVE_ESTIMATIONS_FOLDER_ID` | Optional source folder of past estimation spreadsheets for seeding |
 | `GDRIVE_PROPOSALS_FOLDER_ID` | Optional source folder of past proposal documents for seeding |
 
@@ -184,12 +184,10 @@ Vercel defaults:
 
 | Variable | Default |
 |---|---|
-| `JOB_QUEUE_PROVIDER` | `vercel` |
-| `VERCEL_QUEUE_TOPIC` | `estimations` |
 | `AGENT_WORKSPACE_PROVIDER` | `vercel-sandbox` |
 | `NODE_ENV` | `production` |
 
-The Deploy Button does not ask for these defaults. `VERCEL_QUEUE_TOPIC` must match the topic in `vercel.json` only if you override the queue topic.
+The Deploy Button does not ask for these defaults.
 
 ## 8. Test the Workflow
 
@@ -205,4 +203,4 @@ or:
 /estimate Build a customer portal with authentication, admin reporting, Stripe billing, and CRM sync.
 ```
 
-A healthy run should acknowledge the request in Slack, enqueue a background job, create Google Docs and Sheets outputs, and post final links back to the Slack thread.
+A healthy run should acknowledge the request in Slack, start a Vercel Workflow run, create Google Docs and Sheets outputs, and post final links back to the Slack thread.

@@ -84,8 +84,8 @@ Suggested clip sequence:
 
 ## Demo Talking Points
 
-- The workflow is not a chatbot wrapper; it is a durable agent pipeline with queue-backed work.
+- The workflow is not a chatbot wrapper; it is a durable agent pipeline with Vercel Workflow-backed execution.
 - MCP tools are isolated standalone stdio processes.
 - Untrusted RFP text is boundary-tagged in prompts.
 - Agency positioning and proof points are configurable through an external profile.
-- Vercel is the default public deployment path, while local and self-hosted fallbacks remain available.
+- Vercel is the default public deployment path.

@@ -23,7 +23,6 @@ function loadEnv(env: Record<string, string | undefined>) {
     PINECONE_API_KEY:     requireEnv(env, "PINECONE_API_KEY"),
     PINECONE_INDEX:       env["PINECONE_INDEX"] ?? "estimations",
     VOYAGE_API_KEY:       requireEnv(env, "VOYAGE_API_KEY"),
-    REDIS_URL:            env["REDIS_URL"] ?? "redis://localhost:6379",
     PORT:                 parseInt(env["PORT"] ?? "3000"),
     NODE_ENV:             env["NODE_ENV"] ?? "development",
   };
@@ -49,7 +48,6 @@ describe("env loader", () => {
     assert.equal(env.PINECONE_INDEX, "estimations");   // default
     assert.equal(env.PORT, 3000);                       // default
     assert.equal(env.NODE_ENV, "development");          // default
-    assert.equal(env.REDIS_URL, "redis://localhost:6379");
   });
 
   it("respects PINECONE_INDEX override", () => {
@@ -66,11 +64,6 @@ describe("env loader", () => {
   it("respects NODE_ENV override", () => {
     const env = loadEnv({ ...FULL_ENV, NODE_ENV: "production" });
     assert.equal(env.NODE_ENV, "production");
-  });
-
-  it("respects REDIS_URL override", () => {
-    const env = loadEnv({ ...FULL_ENV, REDIS_URL: "redis://upstash:6379" });
-    assert.equal(env.REDIS_URL, "redis://upstash:6379");
   });
 
   const requiredKeys = [
