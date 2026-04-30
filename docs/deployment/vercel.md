@@ -53,7 +53,21 @@ The Deploy Button also pre-fills safe defaults for:
 | `CASE_STUDIES_BASE_URL` | `https://example.com` |
 | `NODE_ENV` | `production` |
 
-Optional integrations can be added later in the Vercel project settings: `BRAVE_SEARCH_API_KEY`, `FIGMA_API_KEY`, `SLACK_OPS_CHANNEL_ID`, `GDRIVE_ESTIMATIONS_FOLDER_ID`, and `GDRIVE_PROPOSALS_FOLDER_ID`.
+Optional integrations can be added later in the Vercel project settings: `BRAVE_SEARCH_API_KEY`, `FIGMA_API_KEY`, `SLACK_OPS_CHANNEL_ID`, `GDRIVE_OUTPUT_FOLDER_ID`, `GDRIVE_ESTIMATIONS_FOLDER_ID`, and `GDRIVE_PROPOSALS_FOLDER_ID`.
+
+`VERCEL_QUEUE_TOPIC` must match the queue trigger topic in `vercel.json`. The starter uses `estimations` in both places.
+
+## Post-Deploy Setup
+
+After Vercel creates the project:
+
+1. Open the deployed app's `/api/health` endpoint and verify it returns `{"status":"ok","runtime":"vercel"}`.
+2. In Slack, set the Events API request URL to `https://<your-vercel-domain>/api/slack/events`.
+3. In Slack, set the slash command request URL to `https://<your-vercel-domain>/api/slack/events`.
+4. Install or reinstall the Slack app after changing scopes or request URLs.
+5. Share the configured Google Drive folders and templates with the Google OAuth account used by the app.
+6. Seed knowledge-base data with `npm run seed` from a local checkout that has the same Pinecone, Voyage, and Google env vars.
+7. Send a short test RFP in Slack with `!estimate <brief>` and confirm a queue message is processed.
 
 ## Local Fallback
 
