@@ -22,6 +22,7 @@
     "dev": "npx vercel dev",
     "dev:vercel": "npx vercel dev",
     "seed": "tsx scripts/seed-knowledge-base.ts",
+    "setup:google-templates": "tsx scripts/setup-google-templates.ts",
     "check:vercel-sandbox": "tsx scripts/check-vercel-sandbox.ts",
     "test": "tsx --test src/**/*.test.ts",
     "audit:high": "npm audit --audit-level=high",

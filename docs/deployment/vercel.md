@@ -37,6 +37,14 @@ The Deploy Button asks Vercel to collect only the values needed for a first work
 | `PINECONE_API_KEY` | Knowledge-base vector search |
 | `VOYAGE_API_KEY` | Embeddings for knowledge-base search |
 
+If you do not have template IDs yet, configure Google OAuth locally and run:
+
+```bash
+npm run setup:google-templates -- --folder-id <GDRIVE_ROOT_FOLDER_ID>
+```
+
+The command creates user-owned Google Docs and Sheets starter templates and prints the two template IDs to paste into Vercel.
+
 The app uses these runtime defaults when the variables are not set. Set them manually in Vercel only when changing the starter behavior:
 
 | Variable | Default |
@@ -52,7 +60,7 @@ The Deploy Button intentionally does not ask for optional, seeding, or branding 
 
 After Vercel creates the project:
 
-1. Open the deployed app's `/api/health` endpoint and verify it returns `{"status":"ok","runtime":"vercel"}`.
+1. Open the deployed app's `/api/health` endpoint and verify it returns `{"status":"ok","runtime":"vercel","workflow":"enabled"}`.
 2. In Slack, set the Events API request URL to `https://<your-vercel-domain>/api/slack/events`.
 3. In Slack, set the slash command request URL to `https://<your-vercel-domain>/api/slack/events`.
 4. Install or reinstall the Slack app after changing scopes or request URLs.

@@ -85,15 +85,29 @@ Create or choose a root Drive folder and set:
 | `GDRIVE_ESTIMATIONS_FOLDER_ID` | Optional source folder of past estimation spreadsheets for seeding |
 | `GDRIVE_PROPOSALS_FOLDER_ID` | Optional source folder of past proposal documents for seeding |
 
-## 4. Create Document Templates
+## 4. Create Google Templates
 
-Create a Google Docs proposal template:
+If you do not already have templates, generate starter templates in your Google Drive:
 
 ```bash
-npx tsx scripts/create-template.ts --folder-id <GDRIVE_ROOT_FOLDER_ID>
+npm run setup:google-templates -- --folder-id <GDRIVE_ROOT_FOLDER_ID>
 ```
 
-Set `GDRIVE_TEMPLATE_ID` to the created document ID. The starter expects these placeholders to exist on the cover page:
+The command creates:
+
+- A Google Docs offer template with a styled cover page and body space for generated proposal sections.
+- A Google Sheets estimation template with the expected columns, frozen header rows, widths, dropdowns, checkbox validation, and starter formatting.
+
+It prints:
+
+```text
+GDRIVE_TEMPLATE_ID=<created-doc-id>
+GSHEETS_TEMPLATE_ID=<created-sheet-id>
+```
+
+Set those values locally and in Vercel. The templates are owned by the Google account that granted OAuth access, so adopters can edit them after creation.
+
+The Docs template uses these cover placeholders:
 
 | Placeholder | Filled with |
 |---|---|
@@ -101,23 +115,23 @@ Set `GDRIVE_TEMPLATE_ID` to the created document ID. The starter expects these p
 | `{{PROJECT_NAME}}` | Estimated project name |
 | `{{DATE}}` | Generation date |
 
-Create a Google Sheets estimation template manually and set `GSHEETS_TEMPLATE_ID` to its spreadsheet ID. The first sheet should have headers in row 1, optional descriptions in row 2, and writable rows starting at row 3.
-
-Expected columns:
+The Sheets template uses row 1 for headers, row 2 for descriptions, and writable rows from row 3 onward:
 
 | Column | Header |
 |---|---|
 | A | Module |
-| B | Action item |
-| C | Effort MD |
-| D | Effort MD with risk |
+| B | Action Item |
+| C | Effort (MD) |
+| D | Risk-adjusted Effort (MD) |
 | E | Type |
 | F | Optional |
 | G | Risk |
 | H | Assumptions |
-| I | Figma link |
+| I | Figma Link |
 
 The sheet generator copies the template, clears rows from `A3:Z`, writes raw user-derived values to prevent formula injection, and inserts subtotal formulas itself.
+
+To use an existing branded template instead, keep the same Doc placeholders and Sheet columns, then set `GDRIVE_TEMPLATE_ID` and `GSHEETS_TEMPLATE_ID` to your file IDs.
 
 ## 5. Configure Retrieval
 
@@ -177,7 +191,7 @@ https://<your-vercel-domain>/api/health
 Expected response:
 
 ```json
-{"status":"ok","runtime":"vercel"}
+{"status":"ok","runtime":"vercel","workflow":"enabled"}
 ```
 
 Vercel defaults:

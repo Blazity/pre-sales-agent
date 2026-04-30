@@ -13,9 +13,9 @@ Built by Blazity as a configurable reference implementation for agencies and pro
 - Durable background processing for long-running agent work.
 - MCP-isolated tool servers for knowledge base, Google Workspace, web research, and Slack interaction.
 - Retrieval-augmented estimation from past estimates and proposal examples.
-- Google Docs and Sheets output.
+- Google Docs and Sheets output with generated starter templates.
 - Prompt-injection boundaries around untrusted user content.
-- Vercel Functions, Vercel Queues, and Vercel Sandbox as the default deployment path.
+- Vercel Functions, Vercel Workflow, and Vercel Sandbox as the default deployment path.
 
 ## Status
 
@@ -24,6 +24,8 @@ This project is an OSS starter extracted from a production-shaped internal estim
 ## Deploy
 
 Use the Deploy with Vercel button to create your own Vercel project and enter environment variables in Vercel during project creation. No local Vercel project link is required for the OSS starter.
+
+If you do not already have Google Docs and Sheets templates, run `npm run setup:google-templates` after configuring Google OAuth. It creates user-owned starter templates and prints `GDRIVE_TEMPLATE_ID` and `GSHEETS_TEMPLATE_ID` for Vercel.
 
 Follow `docs/setup.md` for provider setup across Slack, Google Workspace, Pinecone, Voyage, and Vercel.
 
