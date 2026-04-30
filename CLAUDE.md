@@ -1,4 +1,4 @@
-# Estimation Agent
+# Pre-Sales Agent
 
 Slack bot → BullMQ → Claude Agent SDK orchestrator → MCP servers (stdio). See `.ai/architecture.md` for full architecture.
 
@@ -12,6 +12,7 @@ Slack bot → BullMQ → Claude Agent SDK orchestrator → MCP servers (stdio). 
 - Slack Bolt is mounted at `/slack` on Express — all webhook URLs use `https://<host>/slack/*`.
 - `GOOGLE_REFRESH_TOKEN` is obtained once via `scripts/get-google-token.ts`. If it expires, re-run the script.
 - `GSHEETS_TEMPLATE_ID` is the estimation template spreadsheet ID. Template format: Module | Action items | Estimation (MD) | Estimation (Risk buffer) | Type | Optional? | Risk | Assumptions | Figma Link.
+- Agency identity, proof points, voice, links, and brand colors come from `AGENCY_PROFILE_PATH` or the default starter profile in `src/config/agency-profile.ts`.
 - Follow the Development Workflow for every implementation task. Do not skip steps.
 
 ## Commands
@@ -25,7 +26,6 @@ npm run seed      # seed Pinecone from Google Drive (Sheets + Docs)
 
 - `.ai/architecture.md` — full architecture, MCP patterns, pipeline stages
 - `.ai/lessons.md` — known pitfalls and recurring issues
-- `.ai/specs/` — numbered specifications and implementation plans
 - `.ai/skills/` — on-demand skill guides for common tasks
 - `.env.example` — all required environment variables
 
@@ -42,8 +42,8 @@ Typical pipeline: Slack message → BullMQ job → orchestrator runs 4 steps:
 Every implementation task follows this sequence:
 
 1. **Start** — read `.ai/lessons.md` (see Rules)
-2. **Branch** — create a feature branch from master (e.g. `feat/<scope>`, `fix/<scope>`)
-3. **Implement** — execute the plan; if a spec exists, update its checkboxes
+2. **Branch** — create a feature branch from main (e.g. `feat/<scope>`, `fix/<scope>`)
+3. **Implement** — execute the plan; if a public design note exists, update its checkboxes
 4. **Verify** — type-check and tests must pass (see Rules)
 5. **Self-review** — before pushing, review every changed file against this checklist:
    - **Error propagation**: every `catch` block — does the error need to re-throw so upstream handlers (Slack, queue) can react?
@@ -68,6 +68,5 @@ Tests use Node's built-in test runner (`node:test`). Test files live next to sou
 
 - `architecture.md` — system architecture, MCP patterns, data flow
 - `lessons.md` — known pitfalls with recovery steps
-- `specs/` — numbered specs (design + plan in same file)
 - `skills/` — on-demand guides for common tasks
 - `mcp-tools.md` — all MCP tools with descriptions

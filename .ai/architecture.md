@@ -59,9 +59,10 @@ Each server is registered in the orchestrator with:
 | `scripts/seed-knowledge-base.ts` | Seeds Pinecone from Google Drive (Sheets + Docs) |
 | `scripts/get-google-token.ts` | One-time OAuth flow for `GOOGLE_REFRESH_TOKEN` |
 
-## Brand Style Profile
+## Agency Profile
 
-- **Colors:** Coal `#181B20`, Mariner `#3C43E7`, Burnt Orange `#FD6027`, Off-White `#F9FAFB`, Vibe Yellow `#FFC800`
-- **Fonts:** Space Mono (titles), Inter (body), JetBrains Mono (code)
+- Agency identity, voice, proof points, links, commercial assumptions, and document colors are configured through `src/config/agency-profile.ts`.
+- The default profile is a public starter. Set `AGENCY_PROFILE_PATH` to a JSON file such as `config/agency.example.json` for a real agency.
+- **Fonts:** Inter for body text and JetBrains Mono for cover/title text by default.
 - **Placeholder pattern:** `{{TOKEN_NAME}}` in Docs templates
 - **Template IDs:** `GDRIVE_TEMPLATE_ID` (Docs)

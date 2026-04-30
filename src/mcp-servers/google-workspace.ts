@@ -379,7 +379,7 @@ const tableSchema = z.object({
   type: z.literal("table"),
   headers: z.array(z.string()),
   rows: z.array(z.array(z.string())),
-  headerBackground: z.string().optional().describe("Hex color for header row background, e.g. '#FD6027'"),
+  headerBackground: z.string().optional().describe("Hex color for header row background, e.g. '#F97316'"),
   headerTextColor: z.string().optional().describe("Hex color for header row text, e.g. '#FFFFFF'"),
   totalRowBackground: z.string().optional().describe("Hex color for last row background (total row)"),
   totalRowTextColor: z.string().optional().describe("Hex color for last row text"),

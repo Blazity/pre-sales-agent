@@ -1,5 +1,5 @@
 /**
- * Refresh Blazity case studies in Pinecone.
+ * Refresh public agency case studies in Pinecone.
  * Deletes all existing case_study vectors, then re-scrapes and re-seeds.
  *
  * Usage:

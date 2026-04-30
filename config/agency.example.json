@@ -2,18 +2,43 @@
   "name": "Example Digital Studio",
   "positioning": "A senior product engineering team for complex web platforms.",
   "voice": {
-    "tone": "direct, practical, senior",
-    "forbiddenPhrases": ["cutting-edge", "best-in-class", "synergy"]
+    "summary": "Write as a senior product engineer explaining a practical delivery plan to an executive buyer.",
+    "tone": "direct, practical, senior, business-aware",
+    "forbiddenPhrases": ["cutting-edge", "best-in-class", "synergy", "leverage"]
   },
   "brand": {
     "primaryColor": "#2563EB",
     "accentColor": "#F97316",
-    "textColor": "#111827"
+    "textColor": "#111827",
+    "borderColor": "#E5E7EB",
+    "headerTextColor": "#FFFFFF"
+  },
+  "proof": {
+    "credentials": [
+      "Senior product engineering team",
+      "Experience with SaaS, e-commerce, and content platforms"
+    ],
+    "partners": ["Vercel", "Contentful"],
+    "clients": ["Acme Learning", "Northwind Commerce", "Atlas Media"],
+    "openSource": ["pre-sales-agent starter"]
+  },
+  "services": [
+    "product discovery",
+    "web platform development",
+    "performance engineering",
+    "CMS and commerce integrations",
+    "AI workflow automation"
+  ],
+  "links": {
+    "website": "https://example.com",
+    "clutch": "https://example.com/reviews",
+    "github": "https://github.com/example"
   },
   "commercials": {
     "currency": "EUR",
     "aiProductivityAdjustment": "Apply a conservative productivity adjustment to development tasks only.",
-    "pageBudget": "5-12 pages"
+    "pageBudget": "5-12 pages",
+    "thirdPartyCostPolicy": "Exclude external tooling, hosting, and third-party service costs unless the client explicitly confirms those costs are included in the project price."
   },
   "research": {
     "allowedDomains": ["example.com"]

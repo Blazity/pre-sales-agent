@@ -90,7 +90,7 @@ Format: Context → Problem → Rule → Recovery → Applies to.
 
 **Context:** First real estimation (Assessio) priced 3× too high, produced 19-page document, recommended outdated tech.
 **Problem:** Without guardrails, the agent over-staffs teams, inflates hours, writes verbose documents, and guesses vendor pricing.
-**Rule:** The system prompt must enforce: (1) explicit rate card with EUR/h rates, (2) team sizing tiers by project cost, (3) feature-level budget breakdown (not role-level), (4) 30-40% AI productivity reduction on dev hours, (5) page budgets (5-12 pages), (6) web-search verification of tech versions, (7) never guess third-party pricing.
+**Rule:** The system prompt must enforce: (1) explicit rate card in the configured currency, (2) team sizing tiers by project cost, (3) feature-level budget breakdown (not role-level), (4) conservative AI productivity adjustment on development work, (5) page budgets, (6) web-search verification of tech versions, (7) never guess third-party pricing.
 **Recovery:** If an offer is overpriced or too long, check the ESTIMATION RULES block in the system prompt. Verify the agent applied the AI factor and respected the page budget. Re-run with tighter constraints if needed.
 **Applies to:** `src/agents/orchestrator.ts` (system prompt).
 

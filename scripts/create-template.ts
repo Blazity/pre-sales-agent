@@ -1,5 +1,5 @@
 /**
- * Creates a branded Google Doc template with Blazity styling.
+ * Creates a branded Google Doc template for the configured agency profile.
  *
  * Cover page has placeholder tokens: {{CLIENT_NAME}}, {{PROJECT_NAME}}, {{DATE}}.
  * Brand fonts and colors are applied directly to the cover page text.
@@ -40,8 +40,9 @@ function hexToRgb(hex: string) {
   };
 }
 
-const BURNT_ORANGE = "#FD6027";
+const ACCENT_COLOR = process.env.AGENCY_ACCENT_COLOR ?? "#F97316";
 const COAL = "#181B20";
+const AGENCY_NAME = process.env.AGENCY_NAME ?? "Agency";
 
 async function main() {
   const folderId = process.argv.find((a, i) => process.argv[i - 1] === "--folder-id")
@@ -58,7 +59,7 @@ async function main() {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: "Blazity Offer Template",
+        name: `${AGENCY_NAME} Offer Template`,
         mimeType: "application/vnd.google-apps.document",
         parents: [folderId],
       }),
@@ -72,9 +73,9 @@ async function main() {
   console.log("Applying brand styles...");
 
   const coal = hexToRgb(COAL);
-  const orange = hexToRgb(BURNT_ORANGE);
+  const orange = hexToRgb(ACCENT_COLOR);
 
-  const titleLine = "{{CLIENT_NAME}} & BLAZITY";
+  const titleLine = `{{CLIENT_NAME}} & ${AGENCY_NAME.toUpperCase()}`;
   const proposalLine = "Proposal";
   const coverText = `${titleLine}\n${proposalLine}\n\n{{PROJECT_NAME}}\n{{DATE}}\n`;
 

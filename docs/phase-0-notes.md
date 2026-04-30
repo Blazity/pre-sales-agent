@@ -13,7 +13,7 @@ Phase 0 created a clean repository baseline from the internal estimator.
 
 - Obvious secrets scan: REVIEW NEEDED. Matches were placeholder/test strings only: `xoxb-...`, `sk-ant-test`, and `xoxb-test`.
 - Private/local config scan: PASS, no `.env`, `.claude`, `.vercel`, or `workspace` paths found.
-- Company-specific scan: FAIL. Blazity-specific prompt, script, user-agent, and case-study references remain in copied source files.
+- Company-specific scan: FAIL. The copied source still contained internal agency prompt, script, user-agent, and case-study references at the end of Phase 0.
 
 ## Known Follow-Up Work
 

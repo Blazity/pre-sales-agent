@@ -61,11 +61,11 @@ describe("parseFormattedText()", () => {
   });
 
   it("parses ~~#HEX~~colored~~ text", () => {
-    const runs = parseFormattedText("price: ~~#FD6027~~€50,000~~");
+    const runs = parseFormattedText("price: ~~#F97316~~€50,000~~");
     assert.equal(runs.length, 2);
     assert.equal(runs[0].text, "price: ");
     assert.equal(runs[1].text, "€50,000");
-    assert.equal(runs[1].color, "#FD6027");
+    assert.equal(runs[1].color, "#F97316");
   });
 
   it("parses mixed bold and colored text", () => {

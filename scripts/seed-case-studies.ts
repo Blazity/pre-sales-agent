@@ -1,7 +1,7 @@
 /**
- * Seed Pinecone with Blazity case studies scraped from blazity.com/case-studies.
+ * Seed Pinecone with public agency case studies from CASE_STUDIES_BASE_URL.
  *
- * Fetches the listing page, discovers all case study slugs, scrapes each detail
+ * Fetches the listing page, discovers case study slugs, scrapes each detail
  * page, chunks the text, embeds with voyage-3, and upserts to Pinecone.
  *
  * Usage:
@@ -15,25 +15,23 @@ const PINECONE_API_KEY = process.env.PINECONE_API_KEY!;
 const PINECONE_INDEX = process.env.PINECONE_INDEX ?? "estimations";
 const VOYAGE_API_KEY = process.env.VOYAGE_API_KEY!;
 
-const BASE_URL = "https://blazity.com";
+const BASE_URL = (process.env.CASE_STUDIES_BASE_URL ?? "https://example.com").replace(/\/+$/, "");
+const SOURCE_HOST = new URL(BASE_URL).hostname.replace(/^www\./, "");
 const CASE_STUDIES_URL = `${BASE_URL}/case-studies`;
 const CHUNK_WORDS = 800;
 const CHUNK_OVERLAP_WORDS = 80;
 const MIN_CHUNK_WORDS = 10;
 const EMBEDDING_DELAY_MS = 21000; // ~3 RPM to stay within free-tier Voyage limits
 
-// ── Metadata mapping ─────────────────────────────────────────────────────────
+// ── Optional metadata mapping ────────────────────────────────────────────────
 
 const CASE_STUDY_META: Record<string, { industry: string; problem_type: string; tech_stack: string; key_metric: string }> = {
-  cookunity: { industry: "food-tech", problem_type: "migration", tech_stack: "Next.js, Shopify", key_metric: "70% LCP improvement, double-digit conversion gains" },
-  iberion: { industry: "media", problem_type: "migration", tech_stack: "Next.js, headless CMS", key_metric: "30% perf boost, 150M+ monthly visits, zero downtime" },
-  planday: { industry: "saas", problem_type: "modernization", tech_stack: "Next.js, headless CMS", key_metric: "4x faster development speed" },
-  encoura: { industry: "education", problem_type: "modernization", tech_stack: "Next.js, headless CMS", key_metric: "10x faster page creation" },
-  arthurai: { industry: "ai", problem_type: "modernization", tech_stack: "Next.js, React", key_metric: "48x faster onboarding (8h to 10min)" },
-  vibes: { industry: "martech", problem_type: "greenfield", tech_stack: "Next.js, BFF architecture", key_metric: "Faster deployment, autonomous development" },
-  dropsy: { industry: "e-commerce", problem_type: "greenfield", tech_stack: "React Native", key_metric: "250K users in month 1, 1M+ downloads, 4.7 star rating" },
-  "unreal-estate": { industry: "real-estate", problem_type: "greenfield", tech_stack: "Next.js", key_metric: "3M listings, 800% SEO growth, 50% broker fee savings" },
-  speechmatics: { industry: "ai", problem_type: "performance", tech_stack: "Next.js, AI agents", key_metric: "AI voice agent, optimized performance" },
+  "example-platform-migration": {
+    industry: "saas",
+    problem_type: "migration",
+    tech_stack: "Next.js, Vercel, headless CMS",
+    key_metric: "Replace with a verified public metric before publishing seeded data",
+  },
 };
 
 const DEFAULT_META = { industry: "unknown", problem_type: "unknown", tech_stack: "", key_metric: "" };
@@ -134,7 +132,8 @@ async function fetchCaseStudySlugs(): Promise<string[]> {
 
   // Fallback: look for href patterns in static HTML
   if (slugs.size === 0) {
-    const regex = /href=["'](?:https?:\/\/(?:www\.)?blazity\.com)?\/case-stud(?:y|ies)\/([a-z0-9-]+)["']/gi;
+    const hostPattern = SOURCE_HOST.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`href=["'](?:https?:\\/\\/(?:www\\.)?${hostPattern})?\\/case-stud(?:y|ies)\\/([a-z0-9-]+)["']`, "gi");
     let match: RegExpExecArray | null;
     while ((match = regex.exec(html)) !== null) {
       slugs.add(match[1]);
@@ -173,7 +172,7 @@ async function ensureIndex(pc: Pinecone) {
 // ── Main export ──────────────────────────────────────────────────────────────
 
 export async function seedCaseStudies(deleteExisting = false) {
-  console.log("Seeding Blazity case studies into Pinecone\n");
+  console.log(`Seeding public case studies from ${BASE_URL} into Pinecone\n`);
   console.log(`Index: ${PINECONE_INDEX}\n`);
 
   const pc = new Pinecone({ apiKey: PINECONE_API_KEY });
@@ -228,7 +227,7 @@ export async function seedCaseStudies(deleteExisting = false) {
             metadata: {
               title,
               type: "case_study",
-              source: "blazity.com",
+              source: SOURCE_HOST,
               url,
               industry: meta.industry,
               problem_type: meta.problem_type,

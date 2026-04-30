@@ -8,7 +8,7 @@ Tools available to the orchestrator agent via MCP servers.
 |------|-------------|
 | `search_past_estimations` | Search past estimations (Google Sheets) for structured effort/cost data with optional tech/role filters |
 | `search_past_proposals` | Search past proposals (Google Docs) for writing reference text chunks |
-| `search_case_studies` | Search Blazity case studies with optional industry/problem_type filters |
+| `search_case_studies` | Search configured agency case studies with optional industry/problem_type filters |
 
 ## google-workspace
 

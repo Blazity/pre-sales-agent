@@ -197,7 +197,7 @@ server.tool(
 
 server.tool(
   "search_case_studies",
-  "Search Blazity case studies by relevance, industry, or problem type. Returns structured results with client name, metrics, tech stack, and URL.",
+  "Search configured agency case studies by relevance, industry, or problem type. Returns structured results with client name, metrics, tech stack, and URL.",
   {
     query: z.string().describe("Search query describing the project or domain"),
     industry: z.string().optional().describe("Filter by industry (e.g., e-commerce, saas, media)"),

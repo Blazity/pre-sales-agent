@@ -68,7 +68,7 @@ server.tool(
   async ({ url, extract_prompt }) => {
     try {
       const res = await fetch(url, {
-        headers: { "User-Agent": "Blazity-EstimationAgent/1.0" },
+        headers: { "User-Agent": "PreSalesAgent/0.1" },
       });
 
       if (!res.ok) {
