@@ -19,9 +19,8 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "dev": "tsx watch src/index.ts",
+    "dev": "npx vercel dev",
     "dev:vercel": "npx vercel dev",
-    "start": "node dist/index.js",
     "seed": "tsx scripts/seed-knowledge-base.ts",
     "check:vercel-sandbox": "tsx scripts/check-vercel-sandbox.ts",
     "test": "tsx --test src/**/*.test.ts",
@@ -47,14 +46,13 @@
     "@slack/web-api": "latest",
     "@vercel/queue": "^0.1.6",
     "@vercel/sandbox": "^1.10.0",
-    "bullmq": "latest",
     "dotenv": "latest",
     "express": "latest",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
-    "ioredis": "latest",
     "mammoth": "^1.11.0",
     "open": "^11.0.0",
+    "workflow": "^4.2.4",
     "zod": "latest"
   },
   "devDependencies": {
@@ -62,5 +60,8 @@
     "@types/node": "latest",
     "tsx": "latest",
     "typescript": "latest"
+  },
+  "overrides": {
+    "undici": "7.25.0"
   }
 }
