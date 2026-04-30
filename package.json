@@ -5,6 +5,14 @@
   "private": false,
   "type": "module",
   "license": "MIT",
+  "homepage": "https://github.com/Blazity/pre-sales-agent#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Blazity/pre-sales-agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Blazity/pre-sales-agent/issues"
+  },
   "engines": {
     "node": ">=20"
   },

@@ -6,8 +6,6 @@ Vercel is the target default deployment platform for this starter.
 
 Use the Deploy Button from the README to clone the public repository into the adopter's Git provider, create a new Vercel project, and collect required environment variables in Vercel during project creation. The starter does not require this source repository to be linked to a Vercel project.
 
-Before release, replace the placeholder `your-org` in the README Deploy Button URL with the final public repository owner.
-
 Default service mapping:
 
 - Slack ingress: Vercel Functions.
