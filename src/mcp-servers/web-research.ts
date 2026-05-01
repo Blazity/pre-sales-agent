@@ -241,49 +241,56 @@ export async function fetchPublicWebPage(
   const fetchImpl = options.fetchImpl ?? undiciFetch;
   let current = await resolvePublicWebUrl(rawUrl, resolver);
 
+  redirectLoop:
   for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount++) {
-    const dispatcher = createPinnedDispatcher(current.addresses[0]);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    try {
-      const response = await fetchImpl(current.url, {
-        headers: { "User-Agent": "PreSalesAgent/0.1" },
-        dispatcher,
-        redirect: "manual",
-        signal: controller.signal,
-      });
+    let lastFetchError: unknown;
 
-      if (response.status >= 300 && response.status < 400) {
-        const location = response.headers.get("location");
-        if (!location) {
-          return {
-            response: response as unknown as Response,
-            close: async () => {
-              await dispatcher.close();
-            },
-          };
-        }
-        if (redirectCount === MAX_REDIRECTS) {
-          throw new Error(`Too many redirects; max is ${MAX_REDIRECTS}.`);
-        }
-        await response.body?.cancel();
-        await dispatcher.close();
-        current = await resolvePublicWebUrl(new URL(location, current.url).toString(), resolver);
-        continue;
-      }
+    for (const address of current.addresses) {
+      const dispatcher = createPinnedDispatcher(address);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      try {
+        const response = await fetchImpl(current.url, {
+          headers: { "User-Agent": "PreSalesAgent/0.1" },
+          dispatcher,
+          redirect: "manual",
+          signal: controller.signal,
+        });
 
-      return {
-        response: response as unknown as Response,
-        close: async () => {
+        if (response.status >= 300 && response.status < 400) {
+          const location = response.headers.get("location");
+          if (!location) {
+            return {
+              response: response as unknown as Response,
+              close: async () => {
+                await dispatcher.close();
+              },
+            };
+          }
+          if (redirectCount === MAX_REDIRECTS) {
+            throw new Error(`Too many redirects; max is ${MAX_REDIRECTS}.`);
+          }
+          await response.body?.cancel();
           await dispatcher.close();
-        },
-      };
-    } catch (error) {
-      await dispatcher.close();
-      throw error;
-    } finally {
-      clearTimeout(timeout);
+          current = await resolvePublicWebUrl(new URL(location, current.url).toString(), resolver);
+          continue redirectLoop;
+        }
+
+        return {
+          response: response as unknown as Response,
+          close: async () => {
+            await dispatcher.close();
+          },
+        };
+      } catch (error) {
+        await dispatcher.close();
+        lastFetchError = error;
+      } finally {
+        clearTimeout(timeout);
+      }
     }
+
+    if (lastFetchError) throw lastFetchError;
   }
 
   throw new Error(`Too many redirects; max is ${MAX_REDIRECTS}.`);

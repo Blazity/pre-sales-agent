@@ -179,6 +179,25 @@ describe("public web URL policy", () => {
     assert.equal(response.ok, true);
     await close();
   });
+
+  it("tries remaining validated addresses when a pinned fetch fails", async () => {
+    let attempts = 0;
+    const { response, close } = await fetchPublicWebPage("https://dual-stack.test/page", {
+      resolver: async () => ["2606:2800:220:1:248:1893:25c8:1946", "93.184.216.34"],
+      fetchImpl: async (_input, init?: UndiciRequestInit) => {
+        assert.ok(init?.dispatcher);
+        attempts += 1;
+        if (attempts === 1) {
+          throw new Error("connect timeout");
+        }
+        return new UndiciResponse("ok", { headers: { "content-type": "text/plain" } });
+      },
+    });
+
+    assert.equal(response.ok, true);
+    assert.equal(attempts, 2);
+    await close();
+  });
 });
 
 describe("readLimitedText()", () => {
