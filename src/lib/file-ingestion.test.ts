@@ -32,6 +32,10 @@ const {
   DownloadValidationError,
   isValidPdf,
   classifyDriveFileForManifest,
+  FILE_SIZE_LIMITS,
+  getFileSizeLimit,
+  isFileWithinSizeLimit,
+  assertBufferWithinSizeLimit,
 } = await import("./file-ingestion.js");
 
 // ── Helper: create a mock Response ──────────────────────────────────────────
@@ -301,6 +305,34 @@ describe("downloadSlackFile()", () => {
 
     const result = await downloadSlackFile("https://files.slack.com/test.pdf");
     assert.equal(result.length, smallPdf.length);
+  });
+});
+
+describe("file size policy", () => {
+  it("uses a 30 MB limit for PDFs and DOCX files", () => {
+    assert.equal(getFileSizeLimit("application/pdf"), 30 * 1024 * 1024);
+    assert.equal(
+      getFileSizeLimit("application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+      30 * 1024 * 1024,
+    );
+  });
+
+  it("uses a 50 MB limit for other copied files", () => {
+    assert.equal(getFileSizeLimit("image/png"), FILE_SIZE_LIMITS.otherBytes);
+    assert.equal(FILE_SIZE_LIMITS.otherBytes, 50 * 1024 * 1024);
+  });
+
+  it("checks metadata sizes before download", () => {
+    assert.equal(isFileWithinSizeLimit("application/pdf", 30 * 1024 * 1024), true);
+    assert.equal(isFileWithinSizeLimit("application/pdf", 30 * 1024 * 1024 + 1), false);
+  });
+
+  it("checks downloaded buffer sizes after download", () => {
+    const oversized = Buffer.alloc(30 * 1024 * 1024 + 1);
+    assert.throws(
+      () => assertBufferWithinSizeLimit(oversized, "application/pdf", "large.pdf"),
+      /large\.pdf exceeds the 30 MB limit/,
+    );
   });
 });
 

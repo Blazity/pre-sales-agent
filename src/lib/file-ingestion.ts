@@ -49,6 +49,34 @@ const ACCEPTED_CONTENT_TYPES = [
 const RETRY_DELAYS = [2000, 5000];
 const MAX_ATTEMPTS = 3;
 
+export const FILE_SIZE_LIMITS = {
+  pdfBytes: 30 * 1024 * 1024,
+  docxBytes: 30 * 1024 * 1024,
+  otherBytes: 50 * 1024 * 1024,
+} as const;
+
+function formatMb(bytes: number): number {
+  return Math.round(bytes / 1024 / 1024);
+}
+
+export function getFileSizeLimit(mimeType: string): number {
+  if (mimeType === "application/pdf") return FILE_SIZE_LIMITS.pdfBytes;
+  if (classifySlackFile(mimeType) === "docx") return FILE_SIZE_LIMITS.docxBytes;
+  return FILE_SIZE_LIMITS.otherBytes;
+}
+
+export function isFileWithinSizeLimit(mimeType: string, sizeBytes?: number): boolean {
+  if (sizeBytes === undefined) return true;
+  return sizeBytes <= getFileSizeLimit(mimeType);
+}
+
+export function assertBufferWithinSizeLimit(buffer: Buffer, mimeType: string, fileName: string): void {
+  const limit = getFileSizeLimit(mimeType);
+  if (buffer.length > limit) {
+    throw new Error(`${fileName} exceeds the ${formatMb(limit)} MB limit.`);
+  }
+}
+
 function collectHeaders(headers: Headers): Record<string, string> {
   const result: Record<string, string> = {};
   headers.forEach((v, k) => {
@@ -59,7 +87,7 @@ function collectHeaders(headers: Headers): Record<string, string> {
 
 export async function downloadSlackFile(
   url: string,
-  opts?: { expectedSize?: number; fileName?: string; jobId?: string },
+  opts?: { expectedSize?: number; fileName?: string; jobId?: string; mimeType?: string },
 ): Promise<Buffer> {
   const timer = logger.startTimer("Slack file download", {
     url: url.slice(0, 80),
@@ -111,6 +139,7 @@ export async function downloadSlackFile(
   }
 
   const buffer = Buffer.from(await res.arrayBuffer());
+  assertBufferWithinSizeLimit(buffer, opts?.mimeType ?? contentType ?? "application/octet-stream", opts?.fileName ?? "Slack file");
 
   if (opts?.expectedSize) {
     const diff = Math.abs(buffer.length - opts.expectedSize) / opts.expectedSize;
@@ -158,7 +187,7 @@ export async function downloadSlackFile(
 export async function downloadSlackFileWithRetry(
   fileId: string,
   initialUrl: string,
-  opts: { expectedSize?: number; fileName?: string; jobId?: string },
+  opts: { expectedSize?: number; fileName?: string; jobId?: string; mimeType?: string },
 ): Promise<Buffer> {
   const slackClient = new WebClient(env.SLACK_BOT_TOKEN);
 
@@ -298,6 +327,18 @@ export async function ingestDriveFolder(opts: {
   for (const entry of entries) {
     try {
       const fileType = classifyDriveFileForManifest(entry.mimeType);
+      if (!isFileWithinSizeLimit(entry.mimeType, entry.size)) {
+        const limit = getFileSizeLimit(entry.mimeType);
+        logger.warn("Skipping oversized Drive file", {
+          jobId,
+          fileName: entry.name,
+          sizeBytes: entry.size,
+          limitBytes: limit,
+        });
+        manifest.failedFiles.push(`${entry.name} (exceeds ${formatMb(limit)} MB limit)`);
+        continue;
+      }
+
       const manifestEntry: FileManifestEntry = {
         name: entry.name,
         type: fileType,
@@ -313,6 +354,7 @@ export async function ingestDriveFolder(opts: {
       if (fileType === "pdf") {
         try {
           const buffer = await downloadDriveFile(entry.id);
+          assertBufferWithinSizeLimit(buffer, entry.mimeType, entry.name);
           const convertedId = await uploadAndConvertToDriveDoc(
             `${entry.name} (text)`,
             "application/pdf",
@@ -393,11 +435,25 @@ export async function ingestEstimationFiles(opts: {
 
   for (const file of slackFiles) {
     try {
+      if (!isFileWithinSizeLimit(file.mimetype, file.size)) {
+        const limit = getFileSizeLimit(file.mimetype);
+        logger.warn("Skipping oversized Slack file", {
+          jobId,
+          fileName: file.name,
+          sizeBytes: file.size,
+          limitBytes: limit,
+        });
+        failedFiles.push(`${file.name} (exceeds ${formatMb(limit)} MB limit)`);
+        slackManifest.failedFiles.push(file.name);
+        continue;
+      }
+
       const buffer = await downloadSlackFileWithRetry(
         file.id,
         file.url_private_download,
-        { expectedSize: file.size, fileName: file.name, jobId },
+        { expectedSize: file.size, fileName: file.name, jobId, mimeType: file.mimetype },
       );
+      assertBufferWithinSizeLimit(buffer, file.mimetype, file.name);
 
       // Validate PDF before upload
       if (file.mimetype === "application/pdf" && !isValidPdf(buffer)) {
