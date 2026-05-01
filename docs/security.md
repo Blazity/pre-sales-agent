@@ -16,7 +16,10 @@ Baseline commands:
 ```bash
 npm run typecheck
 npm test
-npm run audit:high
+npm run build
 npm run scan:secrets
 npm run check:mcp-isolation
+npm run audit:high
 ```
+
+`npm audit --audit-level=moderate` currently reports a transitive `workflow`/`devalue` advisory. Track that as dependency hardening, but do not block the Critical/High launch pass on it unless a patched compatible `workflow` release is available.
