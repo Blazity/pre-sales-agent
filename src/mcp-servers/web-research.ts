@@ -75,6 +75,34 @@ function isIpv4InRange(ip: string, start: string, end: string): boolean {
   return value >= ipv4ToNumber(start) && value <= ipv4ToNumber(end);
 }
 
+function normalizeHostForIpCheck(hostname: string): string {
+  if (hostname.startsWith("[") && hostname.endsWith("]")) {
+    return hostname.slice(1, -1);
+  }
+  return hostname;
+}
+
+function mappedIpv4FromIpv6(ip: string): string | null {
+  if (!ip.startsWith("::ffff:")) return null;
+
+  const mapped = ip.slice("::ffff:".length);
+  if (net.isIP(mapped) === 4) return mapped;
+
+  const hexMatch = mapped.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
+  if (!hexMatch) return null;
+
+  const high = Number.parseInt(hexMatch[1], 16);
+  const low = Number.parseInt(hexMatch[2], 16);
+  if (!Number.isInteger(high) || !Number.isInteger(low)) return null;
+
+  return [
+    (high >> 8) & 0xff,
+    high & 0xff,
+    (low >> 8) & 0xff,
+    low & 0xff,
+  ].join(".");
+}
+
 export function isPublicIpAddress(ip: string): boolean {
   const family = net.isIP(ip);
   if (family === 4) {
@@ -94,14 +122,20 @@ export function isPublicIpAddress(ip: string): boolean {
 
   if (family === 6) {
     const normalized = ip.toLowerCase();
+    const mappedIpv4 = mappedIpv4FromIpv6(normalized);
+    if (mappedIpv4) return isPublicIpAddress(mappedIpv4);
+
     return !(
+      normalized === "::" ||
       normalized === "::1" ||
-      normalized.startsWith("fe80:") ||
+      normalized.startsWith("fe8") ||
+      normalized.startsWith("fe9") ||
+      normalized.startsWith("fea") ||
+      normalized.startsWith("feb") ||
       normalized.startsWith("fc") ||
       normalized.startsWith("fd") ||
-      normalized.startsWith("::ffff:127.") ||
-      normalized.startsWith("::ffff:10.") ||
-      normalized.startsWith("::ffff:192.168.")
+      normalized.startsWith("ff") ||
+      normalized.startsWith("2001:db8")
     );
   }
 
@@ -121,7 +155,8 @@ export async function validatePublicWebUrl(rawUrl: string, resolver: HostResolve
     throw new Error("This hostname is not allowed.");
   }
 
-  const addresses = net.isIP(hostname) ? [hostname] : await resolver(hostname);
+  const hostForIpCheck = normalizeHostForIpCheck(hostname);
+  const addresses = net.isIP(hostForIpCheck) ? [hostForIpCheck] : await resolver(hostname);
   if (addresses.length === 0 || addresses.some((address) => !isPublicIpAddress(address))) {
     throw new Error("URL resolved to an address that is not public.");
   }

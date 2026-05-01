@@ -131,6 +131,22 @@ describe("public web URL policy", () => {
     assert.equal(isPublicIpAddress("fd00::1"), false);
     assert.equal(isPublicIpAddress("fe80::1"), false);
   });
+
+  it("rejects IPv4-mapped private IPv6 addresses", async () => {
+    assert.equal(isPublicIpAddress("::ffff:10.0.0.1"), false);
+    assert.equal(isPublicIpAddress("::ffff:127.0.0.1"), false);
+    assert.equal(isPublicIpAddress("::ffff:169.254.169.254"), false);
+    assert.equal(isPublicIpAddress("::ffff:172.16.0.1"), false);
+    assert.equal(isPublicIpAddress("::ffff:192.168.0.1"), false);
+    assert.equal(isPublicIpAddress("::ffff:ac10:1"), false);
+    assert.equal(isPublicIpAddress("::ffff:93.184.216.34"), true);
+
+    await assert.rejects(
+      () => validatePublicWebUrl("http://mapped-private.test/", async () => ["::ffff:172.16.0.1"]),
+      /not public/,
+    );
+    await assert.rejects(() => validatePublicWebUrl("http://[::ffff:172.16.0.1]/"), /not public/);
+  });
 });
 
 describe("readLimitedText()", () => {
