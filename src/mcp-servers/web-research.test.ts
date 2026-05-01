@@ -1,11 +1,14 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { Response as UndiciResponse, type RequestInit as UndiciRequestInit } from "undici";
 
 const {
   htmlToText,
   parseBraveResults,
   validatePublicWebUrl,
+  fetchPublicWebPage,
   isPublicIpAddress,
+  createPinnedLookup,
   readLimitedText,
 } = await import("./web-research.js");
 
@@ -130,6 +133,7 @@ describe("public web URL policy", () => {
     assert.equal(isPublicIpAddress("::1"), false);
     assert.equal(isPublicIpAddress("fd00::1"), false);
     assert.equal(isPublicIpAddress("fe80::1"), false);
+    assert.equal(isPublicIpAddress("fec0::1"), false);
   });
 
   it("rejects IPv4-mapped private IPv6 addresses", async () => {
@@ -146,6 +150,34 @@ describe("public web URL policy", () => {
       /not public/,
     );
     await assert.rejects(() => validatePublicWebUrl("http://[::ffff:172.16.0.1]/"), /not public/);
+    await assert.rejects(() => validatePublicWebUrl("http://[fec0::1]/"), /not public/);
+  });
+
+  it("pins fetch DNS lookup to the validated public address", async () => {
+    await new Promise<void>((resolve, reject) => {
+      const lookup = createPinnedLookup("93.184.216.34");
+      lookup("rebinding.test", {}, (err: Error | null, address: string, family: number) => {
+        try {
+          assert.equal(err, null);
+          assert.equal(address, "93.184.216.34");
+          assert.equal(family, 4);
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+
+    const { response, close } = await fetchPublicWebPage("https://rebinding.test/page", {
+      resolver: async () => ["93.184.216.34"],
+      fetchImpl: async (_input, init?: UndiciRequestInit) => {
+        assert.ok(init?.dispatcher);
+        return new UndiciResponse("ok", { headers: { "content-type": "text/plain" } });
+      },
+    });
+
+    assert.equal(response.ok, true);
+    await close();
   });
 });
 

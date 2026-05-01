@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { lookup } from "node:dns/promises";
 import net from "node:net";
+import { Agent, fetch as undiciFetch, type RequestInfo as UndiciRequestInfo, type RequestInit as UndiciRequestInit } from "undici";
 import { z } from "zod";
 import { config } from "dotenv";
 import Anthropic from "@anthropic-ai/sdk";
@@ -60,6 +61,22 @@ export function htmlToText(html: string): string {
 }
 
 type HostResolver = (hostname: string) => Promise<string[]>;
+type PinnedLookup = (
+  hostname: string,
+  options: object,
+  callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
+) => void;
+type PublicFetch = (input: UndiciRequestInfo, init?: UndiciRequestInit) => ReturnType<typeof undiciFetch>;
+
+interface ValidatedPublicWebUrl {
+  url: URL;
+  addresses: string[];
+}
+
+interface PublicWebPageResponse {
+  response: Response;
+  close: () => Promise<void>;
+}
 
 async function resolveHostname(hostname: string): Promise<string[]> {
   const records = await lookup(hostname, { all: true, verbatim: true });
@@ -132,6 +149,10 @@ export function isPublicIpAddress(ip: string): boolean {
       normalized.startsWith("fe9") ||
       normalized.startsWith("fea") ||
       normalized.startsWith("feb") ||
+      normalized.startsWith("fec") ||
+      normalized.startsWith("fed") ||
+      normalized.startsWith("fee") ||
+      normalized.startsWith("fef") ||
       normalized.startsWith("fc") ||
       normalized.startsWith("fd") ||
       normalized.startsWith("ff") ||
@@ -142,7 +163,7 @@ export function isPublicIpAddress(ip: string): boolean {
   return false;
 }
 
-export async function validatePublicWebUrl(rawUrl: string, resolver: HostResolver = resolveHostname): Promise<URL> {
+async function resolvePublicWebUrl(rawUrl: string, resolver: HostResolver = resolveHostname): Promise<ValidatedPublicWebUrl> {
   const url = new URL(rawUrl);
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error("Only http and https URLs are allowed.");
@@ -160,7 +181,29 @@ export async function validatePublicWebUrl(rawUrl: string, resolver: HostResolve
   if (addresses.length === 0 || addresses.some((address) => !isPublicIpAddress(address))) {
     throw new Error("URL resolved to an address that is not public.");
   }
+  return { url, addresses };
+}
+
+export async function validatePublicWebUrl(rawUrl: string, resolver: HostResolver = resolveHostname): Promise<URL> {
+  const { url } = await resolvePublicWebUrl(rawUrl, resolver);
   return url;
+}
+
+export function createPinnedLookup(address: string): PinnedLookup {
+  const family = net.isIP(address);
+  if (family === 0) {
+    throw new Error("Pinned address must be a valid IP address.");
+  }
+
+  return (_hostname, _options, callback) => callback(null, address, family);
+}
+
+function createPinnedDispatcher(address: string): Agent {
+  return new Agent({
+    connect: {
+      lookup: createPinnedLookup(address),
+    },
+  });
 }
 
 function assertTextContentType(response: Response): void {
@@ -190,30 +233,54 @@ export async function readLimitedText(response: Response, maxBytes = MAX_RESPONS
   return new TextDecoder().decode(Buffer.concat(chunks));
 }
 
-async function fetchPublicWebPage(rawUrl: string): Promise<Response> {
-  let current = await validatePublicWebUrl(rawUrl);
+export async function fetchPublicWebPage(
+  rawUrl: string,
+  options: { resolver?: HostResolver; fetchImpl?: PublicFetch } = {},
+): Promise<PublicWebPageResponse> {
+  const resolver = options.resolver ?? resolveHostname;
+  const fetchImpl = options.fetchImpl ?? undiciFetch;
+  let current = await resolvePublicWebUrl(rawUrl, resolver);
 
   for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount++) {
+    const dispatcher = createPinnedDispatcher(current.addresses[0]);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      const response = await fetch(current, {
+      const response = await fetchImpl(current.url, {
         headers: { "User-Agent": "PreSalesAgent/0.1" },
+        dispatcher,
         redirect: "manual",
         signal: controller.signal,
       });
 
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get("location");
-        if (!location) return response;
+        if (!location) {
+          return {
+            response: response as unknown as Response,
+            close: async () => {
+              await dispatcher.close();
+            },
+          };
+        }
         if (redirectCount === MAX_REDIRECTS) {
           throw new Error(`Too many redirects; max is ${MAX_REDIRECTS}.`);
         }
-        current = await validatePublicWebUrl(new URL(location, current).toString());
+        await response.body?.cancel();
+        await dispatcher.close();
+        current = await resolvePublicWebUrl(new URL(location, current.url).toString(), resolver);
         continue;
       }
 
-      return response;
+      return {
+        response: response as unknown as Response,
+        close: async () => {
+          await dispatcher.close();
+        },
+      };
+    } catch (error) {
+      await dispatcher.close();
+      throw error;
     } finally {
       clearTimeout(timeout);
     }
@@ -236,50 +303,55 @@ server.tool(
   },
   async ({ url, extract_prompt }) => {
     try {
-      const res = await fetchPublicWebPage(url);
+      const fetched = await fetchPublicWebPage(url);
+      try {
+        const res = fetched.response;
 
-      if (!res.ok) {
-        return {
-          content: [{
-            type: "text" as const,
-            text: `Fetch failed: ${res.status} ${res.statusText}`,
-          }],
-        };
+        if (!res.ok) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: `Fetch failed: ${res.status} ${res.statusText}`,
+            }],
+          };
+        }
+
+        assertTextContentType(res);
+        const html = await readLimitedText(res);
+        const pageText = htmlToText(html);
+
+        if (extract_prompt) {
+          const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+          const response = await client.messages.create({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 2000,
+            messages: [{
+              role: "user",
+              content: `${extract_prompt}\n\nPage content:\n${pageText.slice(0, 30000)}`,
+            }],
+          });
+
+          const text = response.content
+            .filter((b): b is Anthropic.TextBlock => b.type === "text")
+            .map((b) => b.text)
+            .join("");
+
+          return { content: [{ type: "text" as const, text }] };
+        }
+
+        if (pageText.length > MAX_TEXT_LENGTH) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: `${pageText.slice(0, MAX_TEXT_LENGTH)}\n\n[... truncated, full page was ${pageText.length} chars ...]`,
+            }],
+          };
+        }
+
+        return { content: [{ type: "text" as const, text: pageText }] };
+      } finally {
+        await fetched.close();
       }
-
-      assertTextContentType(res);
-      const html = await readLimitedText(res);
-      const pageText = htmlToText(html);
-
-      if (extract_prompt) {
-        const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-        const response = await client.messages.create({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 2000,
-          messages: [{
-            role: "user",
-            content: `${extract_prompt}\n\nPage content:\n${pageText.slice(0, 30000)}`,
-          }],
-        });
-
-        const text = response.content
-          .filter((b): b is Anthropic.TextBlock => b.type === "text")
-          .map((b) => b.text)
-          .join("");
-
-        return { content: [{ type: "text" as const, text }] };
-      }
-
-      if (pageText.length > MAX_TEXT_LENGTH) {
-        return {
-          content: [{
-            type: "text" as const,
-            text: `${pageText.slice(0, MAX_TEXT_LENGTH)}\n\n[... truncated, full page was ${pageText.length} chars ...]`,
-          }],
-        };
-      }
-
-      return { content: [{ type: "text" as const, text: pageText }] };
     } catch (err) {
       return { content: [{ type: "text" as const, text: `Error: ${String(err)}` }] };
     }
