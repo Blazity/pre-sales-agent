@@ -1,11 +1,17 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { lookup } from "node:dns/promises";
+import net from "node:net";
 import { z } from "zod";
 import { config } from "dotenv";
 import Anthropic from "@anthropic-ai/sdk";
 config();
 
 const MAX_TEXT_LENGTH = 10000;
+const FETCH_TIMEOUT_MS = 10_000;
+const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+const MAX_REDIRECTS = 5;
+const TEXT_CONTENT_TYPES = ["text/html", "text/plain", "application/xhtml+xml"];
 
 interface BraveResult {
   title: string;
@@ -53,6 +59,134 @@ export function htmlToText(html: string): string {
   return text.trim();
 }
 
+type HostResolver = (hostname: string) => Promise<string[]>;
+
+async function resolveHostname(hostname: string): Promise<string[]> {
+  const records = await lookup(hostname, { all: true, verbatim: true });
+  return records.map((record) => record.address);
+}
+
+function ipv4ToNumber(ip: string): number {
+  return ip.split(".").reduce((acc, part) => (acc << 8) + Number(part), 0) >>> 0;
+}
+
+function isIpv4InRange(ip: string, start: string, end: string): boolean {
+  const value = ipv4ToNumber(ip);
+  return value >= ipv4ToNumber(start) && value <= ipv4ToNumber(end);
+}
+
+export function isPublicIpAddress(ip: string): boolean {
+  const family = net.isIP(ip);
+  if (family === 4) {
+    return ![
+      ["0.0.0.0", "0.255.255.255"],
+      ["10.0.0.0", "10.255.255.255"],
+      ["100.64.0.0", "100.127.255.255"],
+      ["127.0.0.0", "127.255.255.255"],
+      ["169.254.0.0", "169.254.255.255"],
+      ["172.16.0.0", "172.31.255.255"],
+      ["192.0.0.0", "192.0.0.255"],
+      ["192.168.0.0", "192.168.255.255"],
+      ["198.18.0.0", "198.19.255.255"],
+      ["224.0.0.0", "255.255.255.255"],
+    ].some(([start, end]) => isIpv4InRange(ip, start, end));
+  }
+
+  if (family === 6) {
+    const normalized = ip.toLowerCase();
+    return !(
+      normalized === "::1" ||
+      normalized.startsWith("fe80:") ||
+      normalized.startsWith("fc") ||
+      normalized.startsWith("fd") ||
+      normalized.startsWith("::ffff:127.") ||
+      normalized.startsWith("::ffff:10.") ||
+      normalized.startsWith("::ffff:192.168.")
+    );
+  }
+
+  return false;
+}
+
+export async function validatePublicWebUrl(rawUrl: string, resolver: HostResolver = resolveHostname): Promise<URL> {
+  const url = new URL(rawUrl);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("Only http and https URLs are allowed.");
+  }
+  if (url.username || url.password) {
+    throw new Error("URLs with embedded credentials are not allowed.");
+  }
+  const hostname = url.hostname.toLowerCase();
+  if (hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local")) {
+    throw new Error("This hostname is not allowed.");
+  }
+
+  const addresses = net.isIP(hostname) ? [hostname] : await resolver(hostname);
+  if (addresses.length === 0 || addresses.some((address) => !isPublicIpAddress(address))) {
+    throw new Error("URL resolved to an address that is not public.");
+  }
+  return url;
+}
+
+function assertTextContentType(response: Response): void {
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  if (contentType && !TEXT_CONTENT_TYPES.some((allowed) => contentType.includes(allowed))) {
+    throw new Error(`Unsupported content-type: ${contentType}`);
+  }
+}
+
+export async function readLimitedText(response: Response, maxBytes = MAX_RESPONSE_BYTES): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) return await response.text();
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      throw new Error(`Response exceeded ${maxBytes} bytes.`);
+    }
+    chunks.push(value);
+  }
+
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
+
+async function fetchPublicWebPage(rawUrl: string): Promise<Response> {
+  let current = await validatePublicWebUrl(rawUrl);
+
+  for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const response = await fetch(current, {
+        headers: { "User-Agent": "PreSalesAgent/0.1" },
+        redirect: "manual",
+        signal: controller.signal,
+      });
+
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        if (!location) return response;
+        if (redirectCount === MAX_REDIRECTS) {
+          throw new Error(`Too many redirects; max is ${MAX_REDIRECTS}.`);
+        }
+        current = await validatePublicWebUrl(new URL(location, current).toString());
+        continue;
+      }
+
+      return response;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  throw new Error(`Too many redirects; max is ${MAX_REDIRECTS}.`);
+}
+
 const server = new McpServer({ name: "web-research", version: "1.0.0" });
 
 server.tool(
@@ -67,9 +201,7 @@ server.tool(
   },
   async ({ url, extract_prompt }) => {
     try {
-      const res = await fetch(url, {
-        headers: { "User-Agent": "PreSalesAgent/0.1" },
-      });
+      const res = await fetchPublicWebPage(url);
 
       if (!res.ok) {
         return {
@@ -80,7 +212,8 @@ server.tool(
         };
       }
 
-      const html = await res.text();
+      assertTextContentType(res);
+      const html = await readLimitedText(res);
       const pageText = htmlToText(html);
 
       if (extract_prompt) {

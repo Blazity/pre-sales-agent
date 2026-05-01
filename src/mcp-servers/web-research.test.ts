@@ -1,7 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-const { htmlToText, parseBraveResults } = await import("./web-research.js");
+const {
+  htmlToText,
+  parseBraveResults,
+  validatePublicWebUrl,
+  isPublicIpAddress,
+  readLimitedText,
+} = await import("./web-research.js");
 
 describe("parseBraveResults()", () => {
   it("extracts title, url, description from Brave API response", () => {
@@ -82,5 +88,57 @@ describe("truncation", () => {
       : longText;
     assert.ok(truncated.includes("[... truncated"));
     assert.ok(truncated.includes("15000 chars"));
+  });
+});
+
+describe("public web URL policy", () => {
+  const resolver = async (hostname: string) => {
+    const table: Record<string, string[]> = {
+      "example.com": ["93.184.216.34"],
+      "localhost": ["127.0.0.1"],
+      "private.test": ["10.0.0.5"],
+      "metadata.test": ["169.254.169.254"],
+      "ipv6-local.test": ["::1"],
+    };
+    return table[hostname] ?? ["93.184.216.34"];
+  };
+
+  it("allows public http and https URLs", async () => {
+    await assert.doesNotReject(() => validatePublicWebUrl("https://example.com/page", resolver));
+    await assert.doesNotReject(() => validatePublicWebUrl("http://example.com/page", resolver));
+  });
+
+  it("rejects non-http protocols and embedded credentials", async () => {
+    await assert.rejects(() => validatePublicWebUrl("file:///etc/passwd", resolver), /Only http and https/);
+    await assert.rejects(() => validatePublicWebUrl("https://user:pass@example.com", resolver), /credentials/);
+  });
+
+  it("rejects localhost, private, link-local, and metadata destinations", async () => {
+    await assert.rejects(() => validatePublicWebUrl("http://localhost/admin", resolver), /not allowed/);
+    await assert.rejects(() => validatePublicWebUrl("http://private.test/admin", resolver), /not public/);
+    await assert.rejects(() => validatePublicWebUrl("http://metadata.test/latest/meta-data", resolver), /not public/);
+    await assert.rejects(() => validatePublicWebUrl("http://ipv6-local.test/", resolver), /not public/);
+  });
+
+  it("classifies public and non-public IP addresses", () => {
+    assert.equal(isPublicIpAddress("93.184.216.34"), true);
+    assert.equal(isPublicIpAddress("10.0.0.1"), false);
+    assert.equal(isPublicIpAddress("172.16.0.1"), false);
+    assert.equal(isPublicIpAddress("192.168.0.1"), false);
+    assert.equal(isPublicIpAddress("169.254.169.254"), false);
+    assert.equal(isPublicIpAddress("127.0.0.1"), false);
+    assert.equal(isPublicIpAddress("::1"), false);
+    assert.equal(isPublicIpAddress("fd00::1"), false);
+    assert.equal(isPublicIpAddress("fe80::1"), false);
+  });
+});
+
+describe("readLimitedText()", () => {
+  it("rejects responses over the byte limit", async () => {
+    const response = new Response("x".repeat(12), {
+      headers: { "content-type": "text/plain" },
+    });
+
+    await assert.rejects(() => readLimitedText(response, 10), /Response exceeded 10 bytes/);
   });
 });
