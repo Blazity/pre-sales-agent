@@ -21,9 +21,50 @@ const {
   extractCellPositions,
   buildEstimationRows,
   calculateCalendarDays,
+  fileHasAllowedAncestor,
 } = await import("./google-workspace.js");
 
 // ── parseFormattedText (unchanged) ──────────────────────────────────────────
+
+describe("fileHasAllowedAncestor()", () => {
+  it("allows a file with a direct allowed parent", async () => {
+    const fetchMock = async (url: string) => {
+      assert.ok(url.includes("/drive/v3/files/file_1"));
+      return new Response(JSON.stringify({ id: "file_1", parents: ["folder_allowed"] }), { status: 200 });
+    };
+
+    const allowed = await fileHasAllowedAncestor("file_1", ["folder_allowed"], "token", fetchMock as typeof fetch);
+    assert.equal(allowed, true);
+  });
+
+  it("allows a file with an allowed ancestor folder", async () => {
+    const parents: Record<string, string[]> = {
+      file_1: ["folder_child"],
+      folder_child: ["folder_allowed"],
+    };
+    const fetchMock = async (url: string) => {
+      const id = url.match(/files\/([^?]+)/)?.[1] ?? "";
+      return new Response(JSON.stringify({ id, parents: parents[id] ?? [] }), { status: 200 });
+    };
+
+    const allowed = await fileHasAllowedAncestor("file_1", ["folder_allowed"], "token", fetchMock as typeof fetch);
+    assert.equal(allowed, true);
+  });
+
+  it("blocks a file outside allowed folders", async () => {
+    const parents: Record<string, string[]> = {
+      file_1: ["folder_other"],
+      folder_other: [],
+    };
+    const fetchMock = async (url: string) => {
+      const id = url.match(/files\/([^?]+)/)?.[1] ?? "";
+      return new Response(JSON.stringify({ id, parents: parents[id] ?? [] }), { status: 200 });
+    };
+
+    const allowed = await fileHasAllowedAncestor("file_1", ["folder_allowed"], "token", fetchMock as typeof fetch);
+    assert.equal(allowed, false);
+  });
+});
 
 describe("parseFormattedText()", () => {
   it("parses plain text", () => {

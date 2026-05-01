@@ -48,6 +48,54 @@ function assertAllowedFolder(folderId: string): void {
   }
 }
 
+interface DriveParentsResponse {
+  id: string;
+  parents?: string[];
+}
+
+async function fetchFileParents(fileId: string, token: string, fetchImpl: typeof fetch = fetch): Promise<string[]> {
+  const res = await fetchImpl(
+    `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,parents&supportsAllDrives=true`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Drive metadata error: ${res.status} ${text}`);
+  }
+  const data = await res.json() as DriveParentsResponse;
+  return data.parents ?? [];
+}
+
+export async function fileHasAllowedAncestor(
+  fileId: string,
+  allowedFolderIds: string[],
+  token: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<boolean> {
+  if (allowedFolderIds.length === 0) return true;
+
+  const queue = [fileId];
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+
+    const parents = await fetchFileParents(current, token, fetchImpl);
+    if (parents.some((parent) => allowedFolderIds.includes(parent))) return true;
+    queue.push(...parents.filter((parent) => !visited.has(parent)));
+  }
+
+  return false;
+}
+
+async function assertAllowedFile(fileId: string, token: string): Promise<void> {
+  const allowed = await fileHasAllowedAncestor(fileId, ALLOWED_FOLDER_IDS, token);
+  if (!allowed) {
+    throw new Error(`File ${fileId} is not inside an allowed folder.`);
+  }
+}
+
 // ── MCP Server ───────────────────────────────────────────────────────────────
 const server = new McpServer({ name: "google-workspace", version: "1.0.0" });
 
@@ -93,6 +141,7 @@ server.tool(
   async ({ file_id }) => {
     try {
       const token = await getAccessToken();
+      await assertAllowedFile(file_id, token);
       const res = await fetch(
         `https://www.googleapis.com/drive/v3/files/${file_id}?fields=id,name,mimeType,size,modifiedTime,webViewLink,parents&supportsAllDrives=true`,
         { headers: { Authorization: `Bearer ${token}` } },
@@ -156,6 +205,7 @@ server.tool(
   async ({ file_id, mime_type }) => {
     try {
       const token = await getAccessToken();
+      await assertAllowedFile(file_id, token);
 
       // First check the file type to determine export vs download
       const metaRes = await fetch(
@@ -293,6 +343,7 @@ server.tool(
   async ({ document_id }) => {
     try {
       const token = await getAccessToken();
+      await assertAllowedFile(document_id, token);
       const res = await fetch(
         `https://www.googleapis.com/drive/v3/files/${document_id}/export?mimeType=text%2Fplain`,
         { headers: { Authorization: `Bearer ${token}` } },
@@ -983,6 +1034,7 @@ server.tool(
   async ({ document_id, sections }) => {
     try {
       const token = await getAccessToken();
+      await assertAllowedFile(document_id, token);
 
       // Phase 1: Create Sheets for any chart sections
       const chartEmbeds = new Map<number, ChartEmbed>();
@@ -1113,6 +1165,7 @@ server.tool(
   async ({ document_id, find, replace }) => {
     try {
       const token = await getAccessToken();
+      await assertAllowedFile(document_id, token);
       const res = await fetch(
         `https://docs.googleapis.com/v1/documents/${document_id}:batchUpdate`,
         {
