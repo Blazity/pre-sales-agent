@@ -119,13 +119,68 @@ export function parseToolToStep(source: string): Map<string, number> {
 
 export function parseAllowedTools(source: string): Set<string> {
   const tools = new Set<string>();
+  const allowedToolsArray = extractArrayAfterProperty(source, "allowedTools");
+  if (!allowedToolsArray) {
+    return tools;
+  }
+
   const allowedToolPattern = /mcp__[^"'`\s]+__([a-zA-Z0-9_]+)/g;
 
-  for (const match of source.matchAll(allowedToolPattern)) {
+  for (const match of allowedToolsArray.matchAll(allowedToolPattern)) {
     tools.add(match[1]);
   }
 
   return tools;
+}
+
+function extractArrayAfterProperty(source: string, propertyName: string): string | null {
+  const propertyMatch = new RegExp(`\\b${propertyName}\\s*:`).exec(source);
+  if (!propertyMatch) {
+    return null;
+  }
+
+  const arrayStart = source.indexOf("[", propertyMatch.index + propertyMatch[0].length);
+  if (arrayStart === -1) {
+    return null;
+  }
+
+  let depth = 0;
+  let quote: string | null = null;
+  let escaped = false;
+
+  for (let index = arrayStart; index < source.length; index++) {
+    const char = source[index];
+
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (char === "\"" || char === "'" || char === "`") {
+      quote = char;
+      continue;
+    }
+
+    if (char === "[") {
+      depth++;
+      continue;
+    }
+
+    if (char === "]") {
+      depth--;
+      if (depth === 0) {
+        return source.slice(arrayStart + 1, index);
+      }
+    }
+  }
+
+  return null;
 }
 
 export function checkAiDocsDrift(snapshot: RepoSnapshot): DriftFinding[] {
@@ -275,14 +330,15 @@ function checkReviewGates(snapshot: RepoSnapshot): DriftFinding[] {
 function checkPackageScripts(snapshot: RepoSnapshot): DriftFinding[] {
   try {
     const packageJson = JSON.parse(snapshot.packageJson) as { scripts?: Record<string, string> };
-    if (packageJson.scripts?.["check:ai-docs"]) {
+    const checkAiDocsScript = packageJson.scripts?.["check:ai-docs"];
+    if (checkAiDocsScript?.includes(".ai/checks/check-ai-docs-drift.ts")) {
       return [];
     }
   } catch (error) {
     return [finding("script-missing", `Could not parse package.json: ${error instanceof Error ? error.message : String(error)}`)];
   }
 
-  return [finding("script-missing", "package.json is missing scripts.check:ai-docs.")];
+  return [finding("script-missing", "package.json scripts.check:ai-docs must run .ai/checks/check-ai-docs-drift.ts.")];
 }
 
 export function loadRepoSnapshot(root: string): RepoSnapshot {

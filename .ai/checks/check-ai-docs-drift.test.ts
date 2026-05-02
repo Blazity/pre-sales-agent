@@ -170,6 +170,19 @@ test("parses allowedTools short names", () => {
   assert.ok(parseAllowedTools(snapshot().orchestratorTs).has("drive_export_file"));
 });
 
+test("parses only the allowedTools array for allowed tool names", () => {
+  const source = `
+const unrelated = "mcp__google-workspace__not_allowed";
+allowedTools: [
+  "mcp__google-workspace__docs_create_document",
+  "mcp__slack-interaction__wait_for_reply",
+],
+const later = "mcp__google-workspace__also_not_allowed";
+`;
+
+  assert.deepEqual([...parseAllowedTools(source)].sort(), ["docs_create_document", "wait_for_reply"]);
+});
+
 test("passes for aligned AI docs", () => {
   assert.deepEqual(checkAiDocsDrift(snapshot()), []);
 });
@@ -204,4 +217,16 @@ test("fails when allowed tools are missing TOOL_TO_STEP entries unless exempt", 
 test("fails when code review docs miss CI gates", () => {
   const findings = checkAiDocsDrift(snapshot({ codeReviewChecklistMd: "`npm run typecheck` passes" }));
   assert.ok(findings.some((finding) => finding.code === "review-gate-missing"));
+});
+
+test("fails when check:ai-docs script points at the wrong command", () => {
+  const findings = checkAiDocsDrift(snapshot({
+    packageJson: JSON.stringify({
+      scripts: {
+        "check:ai-docs": "echo ok",
+      },
+    }),
+  }));
+
+  assert.ok(findings.some((finding) => finding.code === "script-missing"));
 });
