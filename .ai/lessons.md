@@ -26,13 +26,13 @@ Format: Context → Problem → Rule → Recovery → Applies to.
 
 ---
 
-### Google Workspace MCP requires network at runtime
+### Google Workspace MCP runs as a local standalone server
 
-**Context:** The Google Workspace MCP server is fetched via `npx -y @googleapis/mcp-server-google-workspace@latest`.
-**Problem:** In network-restricted environments (some Railway plans, air-gapped CI), this fetch fails silently.
-**Rule:** Ensure production environment has outbound internet access, or pre-install the package.
-**Recovery:** If MCP spawn fails with ENOENT or fetch errors, check outbound internet. As a workaround, pre-install: `npm install @googleapis/mcp-server-google-workspace`.
-**Applies to:** `src/agents/orchestrator.ts` (MCP server config).
+**Context:** The Google Workspace MCP server is a local standalone stdio server compiled to `dist/mcp-servers/google-workspace.js`.
+**Problem:** Treating it as an external `npx`-fetched MCP package leads to wrong deployment and recovery guidance.
+**Rule:** Keep Google Workspace MCP behavior in the local server and build the project before running workflows that spawn MCP servers.
+**Recovery:** If Google Workspace MCP spawn fails, verify `npm run build` produced `dist/mcp-servers/google-workspace.js`, required Google env vars are present, and the Vercel runtime can execute the compiled file.
+**Applies to:** `src/mcp-servers/google-workspace.ts`, `src/agents/orchestrator.ts`, `package.json`.
 
 ---
 
@@ -49,9 +49,9 @@ Format: Context → Problem → Rule → Recovery → Applies to.
 ### wait_for_reply blocks agent turns
 
 **Context:** The `wait_for_reply` tool polls Slack for human responses for up to 15 minutes (reduced from 30 in SPEC-019). The clarification step can run up to 5 rounds.
-**Problem:** With worker concurrency 3 and 4 child processes per job, that's up to 12 simultaneous MCP processes.
-**Rule:** Monitor memory on small Railway plans. Consider reducing concurrency if OOM occurs.
-**Recovery:** If OOM occurs, reduce BullMQ concurrency in `src/queue/worker.ts` (default: 3). Monitor with `docker stats` or Railway metrics.
+**Problem:** Long clarification waits keep an agent run and its MCP child processes active while waiting for a human.
+**Rule:** Keep the timeout explicit in `src/mcp-servers/slack-interaction.ts`, `.ai/architecture.md`, and `.ai/mcp-tools.md`; run `npm run check:ai-docs` after changing it.
+**Recovery:** If workflow runs pile up during clarification waits, inspect Vercel Workflow run timelines and Slack thread activity before changing the timeout or skip-step behavior.
 **Applies to:** `src/mcp-servers/slack-interaction.ts`, `src/agents/orchestrator.ts`.
 
 ---
@@ -76,13 +76,13 @@ Format: Context → Problem → Rule → Recovery → Applies to.
 
 ---
 
-### Deploy during active job causes stall/permanent failure
+### Vercel Workflow is the durable run boundary
 
-**Context:** Railway sends SIGTERM on deploy. With default BullMQ settings (`maxStalledCount: 1`, `lockDuration: 30s`), a killed job is marked stalled and permanently failed.
-**Problem:** A single deploy while a job is running makes the job unrecoverable (`job stalled more than allowable limit`).
-**Rule:** The worker uses `lockDuration: 120s`, `stalledInterval: 120s`, `maxStalledCount: 2`, and the SIGTERM handler drains in-flight jobs before exiting. Don't lower these values.
-**Recovery:** If a job is stuck as "stalled", check whether a deploy interrupted it. Retry manually via the admin panel or BullMQ Dashboard.
-**Applies to:** `src/index.ts`, `src/queue/worker.ts`, `railway.toml`.
+**Context:** Long-running estimations execute through Vercel Workflow.
+**Problem:** Treating runs as local queue jobs leads to the wrong debugging path and misses Workflow run timelines.
+**Rule:** Investigate stuck or failed estimations through Vercel Workflow and Function logs first.
+**Recovery:** If a run does not start, verify `/api/slack/events`, required Vercel env vars, and workflow deployment. If a run starts but stalls, inspect the Workflow timeline for the failing step and its structured logs.
+**Applies to:** `api/slack/events.ts`, `workflows/estimation.ts`, `src/workflows/launcher.ts`.
 
 ---
 

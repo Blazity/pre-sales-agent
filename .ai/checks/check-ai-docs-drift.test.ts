@@ -48,7 +48,8 @@ All pull requests target \`main\`.
 `,
     architectureMd: `
 # Architecture
-Slack -> Vercel Workflow -> Claude Agent SDK orchestrator -> MCP servers -> Google Workspace outputs.
+Slack -> Vercel Function ingress -> Vercel Workflow -> Claude Agent SDK orchestrator -> MCP servers -> Google Workspace outputs.
+The default runtime uses Vercel Functions, Vercel Workflow, and Vercel Sandbox.
 `,
     mcpToolsMd: `
 # MCP Tools Reference
@@ -195,6 +196,15 @@ test("fails on branch name conflicts", () => {
 test("fails on stale runtime claims in always-loaded files", () => {
   const findings = checkAiDocsDrift(snapshot({ claudeMd: "Slack -> Express/Bolt -> BullMQ -> Orchestrator" }));
   assert.ok(findings.some((finding) => finding.code === "stale-runtime-claim"));
+});
+
+test("fails when current runtime facts are missing", () => {
+  const findings = checkAiDocsDrift(snapshot({
+    agentsMd: "# Pre-Sales Agent\n- Default branch: `main`",
+    architectureMd: "# Architecture\nSlack -> orchestrator -> output.",
+  }));
+
+  assert.ok(findings.some((finding) => finding.code === "runtime-fact-missing"));
 });
 
 test("fails on wait_for_reply timeout mismatch", () => {

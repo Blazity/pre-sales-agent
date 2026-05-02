@@ -21,6 +21,7 @@ export interface RepoSnapshot {
 
 export type DriftFindingCode =
   | "branch-conflict"
+  | "runtime-fact-missing"
   | "stale-runtime-claim"
   | "timeout-mismatch"
   | "mcp-tool-undocumented"
@@ -54,6 +55,29 @@ const REQUIRED_REVIEW_GATES = [
   "npm run scan:secrets",
   "npm run check:mcp-isolation",
   "npm run check:ai-docs",
+];
+
+const REQUIRED_RUNTIME_FACTS = [
+  {
+    label: "Vercel Functions",
+    pattern: /\bVercel Functions?\b/i,
+  },
+  {
+    label: "Vercel Workflow",
+    pattern: /\bVercel Workflow\b/i,
+  },
+  {
+    label: "Vercel Sandbox",
+    pattern: /\bVercel Sandbox\b/i,
+  },
+  {
+    label: "Claude Agent SDK",
+    pattern: /\bClaude Agent SDK\b/i,
+  },
+  {
+    label: "MCP servers",
+    pattern: /\bMCP (?:tool )?servers?\b/i,
+  },
 ];
 
 function finding(code: DriftFindingCode, message: string): DriftFinding {
@@ -187,6 +211,7 @@ export function checkAiDocsDrift(snapshot: RepoSnapshot): DriftFinding[] {
   const findings: DriftFinding[] = [];
 
   findings.push(...checkBranchConflicts(snapshot));
+  findings.push(...checkRequiredRuntimeFacts(snapshot));
   findings.push(...checkStaleRuntimeClaims(snapshot));
   findings.push(...checkWaitForReplyTimeout(snapshot));
   findings.push(...checkMcpToolDocs(snapshot));
@@ -195,6 +220,18 @@ export function checkAiDocsDrift(snapshot: RepoSnapshot): DriftFinding[] {
   findings.push(...checkPackageScripts(snapshot));
 
   return findings;
+}
+
+function checkRequiredRuntimeFacts(snapshot: RepoSnapshot): DriftFinding[] {
+  const architectureDocs = `${snapshot.agentsMd}\n${snapshot.architectureMd}`;
+
+  return REQUIRED_RUNTIME_FACTS.flatMap(({ label, pattern }) => {
+    if (pattern.test(architectureDocs)) {
+      return [];
+    }
+
+    return [finding("runtime-fact-missing", `AI architecture docs must mention current runtime fact: ${label}.`)];
+  });
 }
 
 function checkBranchConflicts(snapshot: RepoSnapshot): DriftFinding[] {
