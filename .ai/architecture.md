@@ -1,25 +1,42 @@
-# Architecture
+# Agent Architecture
 
 ## System Overview
 
-```
-Slack (!estimate or /estimate) → Express/Bolt → BullMQ job → Orchestrator → MCP servers (stdio)
+```text
+Slack RFP or brief
+  -> Vercel Function ingress
+  -> Vercel Workflow run
+  -> Claude Agent SDK orchestrator
+  -> standalone stdio MCP servers
+  -> Google Docs and Sheets outputs
+  -> Slack thread completion message
 ```
 
-The orchestrator (`src/agents/orchestrator.ts`) drives a multi-stage agent pipeline through a single `query()` call to the Claude Agent SDK. Each stage maps to specific MCP tools via `TOOL_TO_STEP`.
+The orchestrator (`src/agents/orchestrator.ts`) drives a four-stage estimation workflow through a Claude Agent SDK `query()` call. MCP tools provide retrieval, file access, web research, Slack interaction, and Google Workspace output.
+
+## Runtime
+
+The public starter is Vercel-first:
+
+- Vercel Functions handle health checks and Slack Events API ingress from `api/`.
+- Vercel Workflow is the durable execution and observability layer.
+- Vercel Sandbox is the default agent workspace provider on Vercel.
+- Structured workflow events are written to Vercel logs and Workflow run timelines.
 
 ## Pipeline Stages
 
-| Stage | MCP Server | Tools | Purpose |
-|-------|-----------|-------|---------|
-| 1. Analysis | knowledge-base, figma (optional) | `search_past_estimations`, `search_past_proposals`, `search_case_studies`, `get_figma_data`, `download_figma_images` | Structured estimation search + proposal text search + case studies via Pinecone. Figma design file reading when `FIGMA_API_KEY` is set |
-| 2. Clarification | slack-interaction | `wait_for_reply` | Posts questions to Slack, polls for human response (up to 15 min) |
-| 3. Value Discovery | web-research | `fetch_web_page` | Research client business and industry benchmarks |
-| 4. Offer | google-workspace | `docs_copy_template`, `docs_write_sections` | Clones Google Doc template, fills sections |
+| Stage | Purpose | Primary Tools |
+|---|---|---|
+| 1. Analysis | Understand the RFP, retrieve comparable work, inspect supplied files, and gather initial context. | `search_past_estimations`, `search_past_proposals`, `search_case_studies`, `web_search`, optional `get_figma_data`, optional `download_figma_images`, Drive read tools |
+| 2. Clarification | Ask targeted follow-up questions in the Slack thread when clarification is not skipped. | `post_message`, `wait_for_reply` |
+| 3. Value Discovery | Research the client, market context, and credible benchmark data for value framing. | `web_search`, `fetch_web_page` |
+| 4. Offer | Create Google Docs and Sheets outputs and fill template placeholders. | `docs_copy_template`, `docs_find_and_replace`, `docs_write_sections`, `sheets_create_estimation` |
+
+`wait_for_reply` polls for up to 15 minutes.
 
 ## MCP Server Pattern
 
-Every MCP server follows this structure:
+Every MCP server in `src/mcp-servers/` is a standalone stdio process:
 
 ```typescript
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -29,40 +46,38 @@ import { config } from "dotenv";
 config();
 
 const server = new McpServer({ name: "server-name", version: "1.0.0" });
-server.tool("tool_name", "description", { /* Zod schema */ }, async (params) => {
-  return { content: [{ type: "text", text: "result" }] };
+
+server.tool("tool_name", "description", { param: z.string() }, async ({ param }) => {
+  return { content: [{ type: "text" as const, text: `Result: ${param}` }] };
 });
+
 server.connect(new StdioServerTransport());
 ```
 
 Rules:
-- Standalone stdio processes — NEVER import from `src/`
-- Each loads its own `dotenv/config`
-- Google services use token caching with `expiresAt` check
-- Tool params validated with Zod schemas
 
-## Orchestrator MCP Config
-
-Each server is registered in the orchestrator with:
-- `command: "node"`, `args: [path.join(ROOT, "dist/mcp-servers/[name].js")]`
-- `env:` — only the env vars that specific server needs
-- Tools whitelisted in `allowedTools` array with prefix `mcp__[server]__[tool]`
+- Do not import from application internals.
+- Load dotenv inside each MCP server.
+- Validate tool parameters with Zod.
+- Return MCP content blocks.
+- Keep server env vars scoped to only what the server needs.
 
 ## Key Files
 
 | File | Purpose |
-|------|---------|
-| `src/agents/orchestrator.ts` | Agent pipeline driver, MCP configs, system prompt |
-| `src/mcp-servers/*.ts` | MCP tool servers (stdio, standalone) |
-| `src/lib/queue.ts` | BullMQ job queue setup |
-| `src/slack/bolt-app.ts` | Slack Bolt app mounted at `/slack` on Express |
-| `scripts/seed-knowledge-base.ts` | Seeds Pinecone from Google Drive (Sheets + Docs) |
-| `scripts/get-google-token.ts` | One-time OAuth flow for `GOOGLE_REFRESH_TOKEN` |
+|---|---|
+| `api/health.ts` | Vercel health endpoint |
+| `api/slack/events.ts` | Slack Events API ingress |
+| `workflows/estimation.ts` | Durable estimation workflow |
+| `src/agents/orchestrator.ts` | Claude Agent SDK orchestration prompt, MCP config, allowed tools, and tool-step tracking |
+| `src/mcp-servers/*.ts` | Standalone MCP tool servers |
+| `src/runtime/sandbox.ts` | Workspace provider selection |
+| `scripts/seed-knowledge-base.ts` | Pinecone seeding from Google Drive |
+| `scripts/setup-google-templates.ts` | Starter Google Docs and Sheets template creation |
+| `scripts/get-google-token.ts` | One-time Google OAuth refresh-token flow |
 
 ## Agency Profile
 
-- Agency identity, voice, proof points, links, commercial assumptions, and document colors are configured through `src/config/agency-profile.ts`.
-- The default profile is a public starter. Set `AGENCY_PROFILE_PATH` to a JSON file such as `config/agency.example.json` for a real agency.
-- **Fonts:** Inter for body text and JetBrains Mono for cover/title text by default.
-- **Placeholder pattern:** `{{TOKEN_NAME}}` in Docs templates
-- **Template IDs:** `GDRIVE_TEMPLATE_ID` (Docs)
+Agency identity, voice, proof points, links, commercial assumptions, document colors, and template generation defaults come from `src/config/agency-profile.ts`.
+
+Use `AGENCY_PROFILE_PATH` to provide a real agency profile. The default profile must remain a public starter.

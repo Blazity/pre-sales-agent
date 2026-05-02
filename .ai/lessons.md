@@ -140,9 +140,9 @@ Format: Context → Problem → Rule → Recovery → Applies to.
 
 **Context:** Codex Cloud is configured as an automated PR reviewer via GitHub Actions + AGENTS.md.
 **Problem:** Merging without Codex review bypasses the quality gate.
-**Rule:** Every PR to `master` must have Codex approval. The GitHub Action triggers `@codex review` automatically. AGENTS.md points Codex to `.ai/skills/code-review/` — do NOT duplicate the checklist.
+**Rule:** Every PR to `main` must have Codex approval. The GitHub Action triggers `@codex review` automatically. AGENTS.md points Codex to `.ai/skills/code-review/` - do NOT duplicate the checklist.
 **Recovery:** If Codex doesn't review, check that the GitHub App is installed and "Code review" is enabled in Codex settings. Manually comment `@codex review` on the PR.
-**Applies to:** All pull requests to `master`.
+**Applies to:** All pull requests to `main`.
 
 ---
 
@@ -163,13 +163,13 @@ Format: Context → Problem → Rule → Recovery → Applies to.
 
 ---
 
-### AGENTS.md must include repo-specific facts Codex might guess wrong
+### AGENTS.md must include current repo-specific facts
 
-**Context:** Codex assumed the default branch was `main` (GitHub's default) instead of this repo's actual `master`.
-**Problem:** False positive review findings based on wrong assumptions waste time and erode trust in the reviewer.
-**Rule:** Include a "Repository Facts" section in `AGENTS.md` with anything that deviates from common defaults: branch name, package manager, runtime, module system, etc.
-**Recovery:** When Codex produces a false positive based on a wrong assumption, add the correct fact to `AGENTS.md` so it doesn't recur.
-**Applies to:** `AGENTS.md`.
+**Context:** Agent reviewers can produce false positives when branch names, package scripts, runtime architecture, or deployment targets drift from reality.
+**Problem:** Stale repo facts waste review time and can make automated guidance less trustworthy.
+**Rule:** Keep the "Repository Facts" section in `AGENTS.md` current and run `npm run check:ai-docs` after changing agent-facing docs.
+**Recovery:** When an agent produces a false positive based on an incorrect repo fact, correct `AGENTS.md`, related `.ai/` docs, and the drift checker if needed.
+**Applies to:** `AGENTS.md`, `CLAUDE.md`, `.ai/`.
 
 ---
 
