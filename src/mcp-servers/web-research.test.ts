@@ -1,7 +1,16 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { Response as UndiciResponse, type RequestInit as UndiciRequestInit } from "undici";
 
-const { htmlToText, parseBraveResults } = await import("./web-research.js");
+const {
+  htmlToText,
+  parseBraveResults,
+  validatePublicWebUrl,
+  fetchPublicWebPage,
+  isPublicIpAddress,
+  createPinnedLookup,
+  readLimitedText,
+} = await import("./web-research.js");
 
 describe("parseBraveResults()", () => {
   it("extracts title, url, description from Brave API response", () => {
@@ -82,5 +91,121 @@ describe("truncation", () => {
       : longText;
     assert.ok(truncated.includes("[... truncated"));
     assert.ok(truncated.includes("15000 chars"));
+  });
+});
+
+describe("public web URL policy", () => {
+  const resolver = async (hostname: string) => {
+    const table: Record<string, string[]> = {
+      "example.com": ["93.184.216.34"],
+      "localhost": ["127.0.0.1"],
+      "private.test": ["10.0.0.5"],
+      "metadata.test": ["169.254.169.254"],
+      "ipv6-local.test": ["::1"],
+    };
+    return table[hostname] ?? ["93.184.216.34"];
+  };
+
+  it("allows public http and https URLs", async () => {
+    await assert.doesNotReject(() => validatePublicWebUrl("https://example.com/page", resolver));
+    await assert.doesNotReject(() => validatePublicWebUrl("http://example.com/page", resolver));
+  });
+
+  it("rejects non-http protocols and embedded credentials", async () => {
+    await assert.rejects(() => validatePublicWebUrl("file:///etc/passwd", resolver), /Only http and https/);
+    await assert.rejects(() => validatePublicWebUrl("https://user:pass@example.com", resolver), /credentials/);
+  });
+
+  it("rejects localhost, private, link-local, and metadata destinations", async () => {
+    await assert.rejects(() => validatePublicWebUrl("http://localhost/admin", resolver), /not allowed/);
+    await assert.rejects(() => validatePublicWebUrl("http://private.test/admin", resolver), /not public/);
+    await assert.rejects(() => validatePublicWebUrl("http://metadata.test/latest/meta-data", resolver), /not public/);
+    await assert.rejects(() => validatePublicWebUrl("http://ipv6-local.test/", resolver), /not public/);
+  });
+
+  it("classifies public and non-public IP addresses", () => {
+    assert.equal(isPublicIpAddress("93.184.216.34"), true);
+    assert.equal(isPublicIpAddress("10.0.0.1"), false);
+    assert.equal(isPublicIpAddress("172.16.0.1"), false);
+    assert.equal(isPublicIpAddress("192.168.0.1"), false);
+    assert.equal(isPublicIpAddress("169.254.169.254"), false);
+    assert.equal(isPublicIpAddress("127.0.0.1"), false);
+    assert.equal(isPublicIpAddress("::1"), false);
+    assert.equal(isPublicIpAddress("fd00::1"), false);
+    assert.equal(isPublicIpAddress("fe80::1"), false);
+    assert.equal(isPublicIpAddress("fec0::1"), false);
+  });
+
+  it("rejects IPv4-mapped private IPv6 addresses", async () => {
+    assert.equal(isPublicIpAddress("::ffff:10.0.0.1"), false);
+    assert.equal(isPublicIpAddress("::ffff:127.0.0.1"), false);
+    assert.equal(isPublicIpAddress("::ffff:169.254.169.254"), false);
+    assert.equal(isPublicIpAddress("::ffff:172.16.0.1"), false);
+    assert.equal(isPublicIpAddress("::ffff:192.168.0.1"), false);
+    assert.equal(isPublicIpAddress("::ffff:ac10:1"), false);
+    assert.equal(isPublicIpAddress("::ffff:93.184.216.34"), true);
+
+    await assert.rejects(
+      () => validatePublicWebUrl("http://mapped-private.test/", async () => ["::ffff:172.16.0.1"]),
+      /not public/,
+    );
+    await assert.rejects(() => validatePublicWebUrl("http://[::ffff:172.16.0.1]/"), /not public/);
+    await assert.rejects(() => validatePublicWebUrl("http://[fec0::1]/"), /not public/);
+  });
+
+  it("pins fetch DNS lookup to the validated public address", async () => {
+    await new Promise<void>((resolve, reject) => {
+      const lookup = createPinnedLookup("93.184.216.34");
+      lookup("rebinding.test", {}, (err: Error | null, address: string, family: number) => {
+        try {
+          assert.equal(err, null);
+          assert.equal(address, "93.184.216.34");
+          assert.equal(family, 4);
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+
+    const { response, close } = await fetchPublicWebPage("https://rebinding.test/page", {
+      resolver: async () => ["93.184.216.34"],
+      fetchImpl: async (_input, init?: UndiciRequestInit) => {
+        assert.ok(init?.dispatcher);
+        return new UndiciResponse("ok", { headers: { "content-type": "text/plain" } });
+      },
+    });
+
+    assert.equal(response.ok, true);
+    await close();
+  });
+
+  it("tries remaining validated addresses when a pinned fetch fails", async () => {
+    let attempts = 0;
+    const { response, close } = await fetchPublicWebPage("https://dual-stack.test/page", {
+      resolver: async () => ["2606:2800:220:1:248:1893:25c8:1946", "93.184.216.34"],
+      fetchImpl: async (_input, init?: UndiciRequestInit) => {
+        assert.ok(init?.dispatcher);
+        attempts += 1;
+        if (attempts === 1) {
+          throw new Error("connect timeout");
+        }
+        return new UndiciResponse("ok", { headers: { "content-type": "text/plain" } });
+      },
+    });
+
+    assert.equal(response.ok, true);
+    assert.equal(attempts, 2);
+    await close();
+  });
+});
+
+describe("readLimitedText()", () => {
+  it("rejects responses over the byte limit", async () => {
+    const response = new Response("x".repeat(12), {
+      headers: { "content-type": "text/plain" },
+    });
+
+    await assert.rejects(() => readLimitedText(response, 10), /Response exceeded 10 bytes/);
   });
 });

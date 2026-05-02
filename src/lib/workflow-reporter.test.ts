@@ -137,7 +137,7 @@ describe("workflow reporter", () => {
     ]);
   });
 
-  it("serializes tool call args without throwing for undefined, circular objects, or bigint", async () => {
+  it("summarizes unusual tool call args without throwing for undefined, circular objects, or bigint", async () => {
     const messages: string[] = [];
     const reporter = createWorkflowReporter("est_123", {
       info: (message) => { messages.push(message); },
@@ -153,9 +153,75 @@ describe("workflow reporter", () => {
     await reporter.toolCall("bigint_tool", 1n);
 
     assert.deepEqual(messages, [
-      "undefined_tool(undefined)",
-      "circular_tool([unserializable args])",
-      "bigint_tool(1)",
+      "undefined_tool(args_redacted)",
+      "circular_tool(args_redacted)",
+      "bigint_tool(args_redacted)",
     ]);
+  });
+
+  it("redacts raw agent text from workflow logs", async () => {
+    const events: Array<{ message?: string; data?: Record<string, unknown> }> = [];
+    const reporter = createWorkflowReporter("est_123", {
+      info: (_message, data) => { events.push(data as { message?: string; data?: Record<string, unknown> }); },
+      warn: (_message, data) => { events.push(data as { message?: string; data?: Record<string, unknown> }); },
+      error: (_message, data) => { events.push(data as { message?: string; data?: Record<string, unknown> }); },
+      debug: (_message, data) => { events.push(data as { message?: string; data?: Record<string, unknown> }); },
+    });
+
+    await reporter.agentText("SECRET_RFP_TEXT: client wants acquisition strategy");
+
+    const serialized = JSON.stringify(events);
+    assert.ok(!serialized.includes("SECRET_RFP_TEXT"));
+    assert.ok(serialized.includes("agent_text_redacted"));
+    assert.ok(serialized.includes("\"textLength\""));
+  });
+
+  it("redacts sensitive tool arguments and preserves safe summaries", async () => {
+    const events: Array<{ message?: string; data?: Record<string, unknown> }> = [];
+    const reporter = createWorkflowReporter("est_123", {
+      info: (_message, data) => { events.push(data as { message?: string; data?: Record<string, unknown> }); },
+      warn: (_message, data) => { events.push(data as { message?: string; data?: Record<string, unknown> }); },
+      error: (_message, data) => { events.push(data as { message?: string; data?: Record<string, unknown> }); },
+      debug: (_message, data) => { events.push(data as { message?: string; data?: Record<string, unknown> }); },
+    });
+
+    await reporter.toolCall("mcp__web-research__fetch_web_page", {
+      url: "https://example.com/private?token=SECRET_TOKEN",
+      extract_prompt: "extract SECRET_CLIENT_DETAIL",
+    });
+    await reporter.toolCall("mcp__google-workspace__docs_write_sections", {
+      document_id: "doc_SECRET_ID",
+      sections: [
+        { type: "paragraph", text: "SECRET_PROPOSAL_BODY" },
+        { type: "table", rows: [["SECRET_TABLE_VALUE"]] },
+      ],
+    });
+
+    const serialized = JSON.stringify(events);
+    assert.ok(!serialized.includes("SECRET_TOKEN"));
+    assert.ok(!serialized.includes("SECRET_CLIENT_DETAIL"));
+    assert.ok(!serialized.includes("SECRET_PROPOSAL_BODY"));
+    assert.ok(!serialized.includes("SECRET_TABLE_VALUE"));
+    assert.ok(serialized.includes("example.com"));
+    assert.ok(serialized.includes("\"sectionCount\":2"));
+  });
+
+  it("redacts raw tool results from workflow logs", async () => {
+    const events: Array<{ message?: string; data?: Record<string, unknown> }> = [];
+    const reporter = createWorkflowReporter("est_123", {
+      info: (_message, data) => { events.push(data as { message?: string; data?: Record<string, unknown> }); },
+      warn: (_message, data) => { events.push(data as { message?: string; data?: Record<string, unknown> }); },
+      error: (_message, data) => { events.push(data as { message?: string; data?: Record<string, unknown> }); },
+      debug: (_message, data) => { events.push(data as { message?: string; data?: Record<string, unknown> }); },
+    });
+
+    await reporter.toolResult("mcp__google-workspace__drive_export_file", "SECRET_DOC_TEXT with confidential budget");
+    await reporter.toolResult("mcp__google-workspace__drive_export_file", "Error: Drive API error: forbidden");
+
+    const serialized = JSON.stringify(events);
+    assert.ok(!serialized.includes("SECRET_DOC_TEXT"));
+    assert.ok(serialized.includes("\"resultLength\""));
+    assert.ok(serialized.includes("\"status\":\"ok\""));
+    assert.ok(serialized.includes("\"status\":\"error\""));
   });
 });

@@ -1,5 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { safeReport, type EstimationJob, type runEstimationWorkflow } from "./orchestrator.js";
 import type { WorkflowReporter } from "../lib/workflow-reporter.js";
 
@@ -48,6 +51,14 @@ describe("safeReport", () => {
     assert.equal(warning.jobId, "est_1234567890");
     assert.equal(warning.operation, "progress");
     assert.equal(warning.error, "sink unavailable");
+  });
+});
+
+describe("orchestrator tool allowlist", () => {
+  it("does not expose broad Drive search to the agent", () => {
+    const currentFile = fileURLToPath(import.meta.url);
+    const source = fs.readFileSync(path.join(path.dirname(currentFile), "orchestrator.ts"), "utf-8");
+    assert.ok(!source.includes("\"mcp__google-workspace__drive_search_files\""));
   });
 });
 

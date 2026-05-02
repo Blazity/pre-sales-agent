@@ -14,7 +14,7 @@
     "url": "https://github.com/Blazity/pre-sales-agent/issues"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.18.1"
   },
   "scripts": {
     "build": "workflow validate --strict && tsc",
@@ -51,6 +51,7 @@
     "express": "latest",
     "mammoth": "^1.11.0",
     "open": "^11.0.0",
+    "undici": "7.25.0",
     "workflow": "^4.2.4",
     "zod": "latest"
   },
