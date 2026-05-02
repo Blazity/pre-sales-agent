@@ -1,42 +1,33 @@
 ---
 name: code-review
-description: Use when reviewing completed work before committing or creating PRs
+description: Use when reviewing completed work before committing, pushing, creating a PR, or merging
 ---
 
 # Code Review
 
-Project-specific code review workflow for estimation-agent.
+Project-specific review workflow for Pre-Sales Agent.
 
 ## Workflow
 
-1. **Scope** — identify all changed files via `git diff --name-only`
-2. **MCP isolation gate** — verify no MCP server imports from `src/`
-3. **Checklist** — run through `references/checklist.md`
-4. **TypeScript gate** — `npx tsc --noEmit` must pass
-5. **Test gate** — `npm test` must pass
-6. **Lessons check** — does this change risk any pitfall in `.ai/lessons.md`?
-7. **Output** — list findings by severity (Critical / High / Medium / Low)
+1. **Scope** — identify all changed files with `git diff --name-only` and `git status --short`.
+2. **MCP isolation gate** — run `npm run check:mcp-isolation`.
+3. **Checklist** — review every applicable item in `references/checklist.md`.
+4. **TypeScript gate** — run `npm run typecheck`.
+5. **Test gate** — run `npm test`.
+6. **Dependency audit gate** — run `npm run audit:high`.
+7. **Secret scan gate** — run `npm run scan:secrets`.
+8. **AI docs drift gate** — run `npm run check:ai-docs`.
+9. **Lessons check** — check whether the change risks any pitfall in `.ai/lessons.md`.
+10. **Output** — list findings by severity.
 
 ## Severity Levels
 
 | Level | Meaning | Action |
-|-------|---------|--------|
-| Critical | Security issue, data loss risk, MCP isolation violation | Must fix before merge |
-| High | Architecture violation, broken pipeline stage | Must fix before merge |
-| Medium | Convention violation, missing test | Should fix |
-| Low | Style suggestion, naming nit | Optional |
-
-## MCP Isolation Gate
-
-For every file in `src/mcp-servers/`:
-- MUST NOT have any import from `../` or `../../` or any relative path outside `src/mcp-servers/`
-- MUST have `import { config } from "dotenv"; config();` at the top
-- MUST use `{ content: [{ type: "text", text: "..." }] }` return format
-
-```bash
-# Quick check — should return nothing
-grep -rn "from ['\"]\.\./" src/mcp-servers/
-```
+|---|---|---|
+| Critical | Security issue, data loss risk, prompt-injection regression, MCP isolation violation | Must fix before merge |
+| High | Architecture violation, broken pipeline stage, wrong Pinecone/Voyage config, generated-output regression | Must fix before merge |
+| Medium | Convention violation, missing test, hidden error handling, stale AI docs | Should fix |
+| Low | Style, naming, local clarity issue | Optional |
 
 ## Output Format
 
@@ -44,20 +35,23 @@ grep -rn "from ['\"]\.\./" src/mcp-servers/
 ## Code Review: [scope]
 
 ### Critical
-- [ ] Finding description (file:line)
+- [ ] Finding description (`file:line`)
 
 ### High
-- [ ] Finding description (file:line)
+- [ ] Finding description (`file:line`)
 
 ### Medium
-- [ ] Finding description (file:line)
+- [ ] Finding description (`file:line`)
 
 ### Low
-- [ ] Finding description (file:line)
+- [ ] Finding description (`file:line`)
 
 ### Gates
 - [ ] MCP isolation: PASS/FAIL
 - [ ] TypeScript: PASS/FAIL
 - [ ] Tests: PASS/FAIL
+- [ ] Dependency audit: PASS/FAIL
+- [ ] Secret scan: PASS/FAIL
+- [ ] AI docs drift: PASS/FAIL
 - [ ] Lessons check: PASS/FAIL
 ```
