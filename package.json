@@ -25,10 +25,11 @@
     "setup:google-templates": "tsx scripts/setup-google-templates.ts",
     "doctor:first-launch": "tsx scripts/doctor-first-launch.ts",
     "check:vercel-sandbox": "tsx scripts/check-vercel-sandbox.ts",
-    "test": "tsx --test src/**/*.test.ts",
+    "test": "tsx --test src/**/*.test.ts .ai/checks/*.test.ts",
     "audit:high": "npm audit --audit-level=high",
     "scan:secrets": "tsx scripts/scan-secrets.ts",
-    "check:mcp-isolation": "rg \"from ['\\\"]\\.\\./\" src/mcp-servers && exit 1 || exit 0"
+    "check:mcp-isolation": "rg \"from ['\\\"]\\.\\./\" src/mcp-servers && exit 1 || exit 0",
+    "check:ai-docs": "tsx .ai/checks/check-ai-docs-drift.ts"
   },
   "keywords": [
     "agents",
