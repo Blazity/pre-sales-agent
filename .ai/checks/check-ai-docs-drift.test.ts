@@ -230,3 +230,15 @@ test("fails when check:ai-docs script points at the wrong command", () => {
 
   assert.ok(findings.some((finding) => finding.code === "script-missing"));
 });
+
+test("fails when check:ai-docs script only echoes the checker path", () => {
+  const findings = checkAiDocsDrift(snapshot({
+    packageJson: JSON.stringify({
+      scripts: {
+        "check:ai-docs": "echo .ai/checks/check-ai-docs-drift.ts",
+      },
+    }),
+  }));
+
+  assert.ok(findings.some((finding) => finding.code === "script-missing"));
+});

@@ -331,7 +331,7 @@ function checkPackageScripts(snapshot: RepoSnapshot): DriftFinding[] {
   try {
     const packageJson = JSON.parse(snapshot.packageJson) as { scripts?: Record<string, string> };
     const checkAiDocsScript = packageJson.scripts?.["check:ai-docs"];
-    if (checkAiDocsScript?.includes(".ai/checks/check-ai-docs-drift.ts")) {
+    if (checkAiDocsScript && invokesAiDocsDriftChecker(checkAiDocsScript)) {
       return [];
     }
   } catch (error) {
@@ -339,6 +339,17 @@ function checkPackageScripts(snapshot: RepoSnapshot): DriftFinding[] {
   }
 
   return [finding("script-missing", "package.json scripts.check:ai-docs must run .ai/checks/check-ai-docs-drift.ts.")];
+}
+
+function invokesAiDocsDriftChecker(script: string): boolean {
+  const checkerPath = String.raw`\.ai/checks/check-ai-docs-drift\.ts`;
+  const commandPatterns = [
+    new RegExp(String.raw`(?:^|&&|\|\||;)\s*tsx\s+${checkerPath}(?:\s|$)`),
+    new RegExp(String.raw`(?:^|&&|\|\||;)\s*npx\s+tsx\s+${checkerPath}(?:\s|$)`),
+    new RegExp(String.raw`(?:^|&&|\|\||;)\s*node\s+--import\s+tsx\s+${checkerPath}(?:\s|$)`),
+  ];
+
+  return commandPatterns.some((pattern) => pattern.test(script));
 }
 
 export function loadRepoSnapshot(root: string): RepoSnapshot {
