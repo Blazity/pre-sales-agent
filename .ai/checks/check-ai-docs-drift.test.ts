@@ -207,6 +207,19 @@ test("fails when current runtime facts are missing", () => {
   assert.ok(findings.some((finding) => finding.code === "runtime-fact-missing"));
 });
 
+test("fails when architecture docs miss current runtime facts even if AGENTS mentions them", () => {
+  const findings = checkAiDocsDrift(snapshot({
+    agentsMd: `
+# Pre-Sales Agent
+- Default branch: \`main\`
+- Vercel Functions, Vercel Workflow, Vercel Sandbox, Claude Agent SDK, MCP servers
+`,
+    architectureMd: "# Architecture\nSlack -> orchestrator -> output.",
+  }));
+
+  assert.ok(findings.some((finding) => finding.code === "runtime-fact-missing"));
+});
+
 test("fails on wait_for_reply timeout mismatch", () => {
   const findings = checkAiDocsDrift(snapshot({ mcpToolsMd: snapshot().mcpToolsMd.replace("15", "30") }));
   assert.ok(findings.some((finding) => finding.code === "timeout-mismatch"));

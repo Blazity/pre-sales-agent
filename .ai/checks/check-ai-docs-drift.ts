@@ -223,14 +223,12 @@ export function checkAiDocsDrift(snapshot: RepoSnapshot): DriftFinding[] {
 }
 
 function checkRequiredRuntimeFacts(snapshot: RepoSnapshot): DriftFinding[] {
-  const architectureDocs = `${snapshot.agentsMd}\n${snapshot.architectureMd}`;
-
   return REQUIRED_RUNTIME_FACTS.flatMap(({ label, pattern }) => {
-    if (pattern.test(architectureDocs)) {
+    if (pattern.test(snapshot.architectureMd)) {
       return [];
     }
 
-    return [finding("runtime-fact-missing", `AI architecture docs must mention current runtime fact: ${label}.`)];
+    return [finding("runtime-fact-missing", `.ai/architecture.md must mention current runtime fact: ${label}.`)];
   });
 }
 
