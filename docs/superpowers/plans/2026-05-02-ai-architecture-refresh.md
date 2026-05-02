@@ -129,6 +129,8 @@ Slack -> Vercel Workflow -> Claude Agent SDK orchestrator -> MCP servers -> Goog
 | slack-interaction | 2 | \`wait_for_reply\` |
 | figma | 1 | \`get_figma_data\` |
 | figma | 1 | \`download_figma_images\` |
+
+\`wait_for_reply\` waits for up to 15 minutes.
 `,
     codeReviewSkillMd: `
 # Code Review
