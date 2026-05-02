@@ -38,6 +38,7 @@ Expected tools:
 - `docs_copy_template`
 - `docs_find_and_replace`
 - `docs_write_sections`
+- `docs_get_document` for final readback and review, not primary content writing
 - `sheets_create_estimation`
 
 The agent should create outputs only in configured output folders.
