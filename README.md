@@ -9,25 +9,43 @@ Built by Blazity as a configurable reference implementation for agencies and pro
 
 ## What This Starter Shows
 
-- Slack ingress for RFPs and briefs.
+- Slack ingress for RFPs and briefs as the default request channel.
 - Durable background processing for long-running agent work.
 - MCP-isolated tool servers for knowledge base, Google Workspace, web research, and Slack interaction.
 - Retrieval-augmented estimation from past estimates and proposal examples.
-- Google Docs and Sheets output with generated starter templates.
+- Google Docs and Sheets output with generated starter templates as the default output system.
 - Prompt-injection boundaries around untrusted user content.
-- Vercel Functions, Vercel Workflow, and Vercel Sandbox as the default deployment path.
+- Vercel Functions, Vercel Workflow, and Vercel Sandbox as the supported runtime.
 
 ## Status
 
-This project is an OSS starter extracted from a production-shaped internal estimator. The default deployment path is Vercel Functions, Vercel Workflow, and Vercel Sandbox.
+This project is an OSS starter extracted from a production-shaped internal estimator. The supported runtime today is Vercel Functions, Vercel Workflow, and Vercel Sandbox.
 
-## Deploy
+## Start Here
 
-Use the Deploy with Vercel button to create your own Vercel project first. The shell can deploy before provider credentials are complete; Slack setup needs the deployed URL.
+This starter is designed for first launch on Vercel. The supported path today is Vercel Functions, Vercel Workflow, and Vercel Sandbox.
 
-Then follow `docs/first-launch.md` to configure provider credentials, generate Google templates, set Vercel environment variables, configure Slack, and run the first estimate.
+1. Click **Deploy with Vercel** to create the project and get a public URL.
+2. Follow `docs/first-launch.md` from the deployed shell to the first successful Slack estimation run.
+3. If you are working with an AI coding assistant, ask it to use `.ai/skills/first-launch/SKILL.md`. That is the onboarding skill for guided setup.
+4. After the first run works, read `docs/architecture.md` to understand the runtime, orchestration, MCP tools, and extension points.
+5. For new MCP tools, use `.ai/skills/add-mcp-server/SKILL.md` and keep the MCP isolation rules intact.
 
-Use `docs/setup.md` as the provider reference across Slack, Google Workspace, Pinecone, Voyage, and Vercel.
+Slack is the default ingress integration in this starter. Other channels, such as Microsoft Teams, should be treated as extension work after the Vercel first-launch path is working.
+
+Google Workspace is the default output system for first launch. Replacing it means adding or changing output tools, not changing the first-launch guide.
+
+## Runtime Flow
+
+```text
+Slack request
+  -> Vercel Function ingress
+  -> Vercel Workflow run
+  -> Claude Agent SDK orchestrator
+  -> MCP stdio tool servers
+  -> Google Docs and Sheets outputs
+  -> Slack thread update
+```
 
 ## Local Development
 
@@ -42,10 +60,10 @@ npm test
 
 ## Documentation
 
-- `docs/architecture.md` explains the agent pipeline and MCP boundaries.
-- `docs/first-launch.md` guides a fresh deployment to the first successful Slack run.
+- `docs/first-launch.md` guides a fresh Vercel deployment to the first successful Slack run.
+- `docs/setup.md` is the provider reference across Slack, Google Workspace, Pinecone, Voyage, and Vercel.
+- `docs/architecture.md` explains the supported Vercel runtime, agent pipeline, MCP boundaries, and extension points.
 - `docs/prompt-architecture.md` explains the orchestration prompt, boundaries, and review gates.
-- `docs/setup.md` walks through a fresh provider setup.
 - `docs/demo.md` provides a public demo runbook and sample script.
 - `docs/configuration.md` explains agency profile and environment configuration.
 - `docs/deployment/vercel.md` tracks the Vercel-first deployment target.
