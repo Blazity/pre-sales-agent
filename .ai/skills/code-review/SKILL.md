@@ -14,11 +14,13 @@ Project-specific review workflow for Pre-Sales Agent.
 3. **Checklist** — review every applicable item in `references/checklist.md`.
 4. **TypeScript gate** — run `npm run typecheck`.
 5. **Test gate** — run `npm test`.
-6. **Dependency audit gate** — run `npm run audit:high`.
-7. **Secret scan gate** — run `npm run scan:secrets`.
-8. **AI docs drift gate** — run `npm run check:ai-docs`.
-9. **Lessons check** — check whether the change risks any pitfall in `.ai/lessons.md`.
-10. **Output** — list findings by severity.
+6. **Build gate** — run `npm run build`.
+7. **Vercel output gate** — run `npm run check:vercel-output`.
+8. **Dependency audit gate** — run `npm run audit:high`.
+9. **Secret scan gate** — run `npm run scan:secrets`.
+10. **AI docs drift gate** — run `npm run check:ai-docs`.
+11. **Lessons check** — check whether the change risks any pitfall in `.ai/lessons.md`.
+12. **Output** — list findings by severity.
 
 ## Severity Levels
 
@@ -50,6 +52,8 @@ Project-specific review workflow for Pre-Sales Agent.
 - [ ] MCP isolation: PASS/FAIL
 - [ ] TypeScript: PASS/FAIL
 - [ ] Tests: PASS/FAIL
+- [ ] Build: PASS/FAIL
+- [ ] Vercel output: PASS/FAIL
 - [ ] Dependency audit: PASS/FAIL
 - [ ] Secret scan: PASS/FAIL
 - [ ] AI docs drift: PASS/FAIL

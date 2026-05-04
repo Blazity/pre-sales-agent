@@ -37,6 +37,7 @@
 - [ ] Slack routes use `/api/slack/events` for Vercel ingress.
 - [ ] Slack request signing is preserved.
 - [ ] Thread context (`channel`, `thread_ts`) is passed correctly.
+- [ ] Vercel Build Output API includes both API routes and Workflow runtime functions.
 - [ ] `wait_for_reply` timeout is documented as 15 minutes.
 - [ ] Workflow logs do not expose raw customer data or secrets.
 
@@ -61,6 +62,8 @@
 - [ ] Tests use mocks for external API calls.
 - [ ] `npm run typecheck` passes.
 - [ ] `npm test` passes.
+- [ ] `npm run build` passes.
+- [ ] `npm run check:vercel-output` passes.
 - [ ] `npm run audit:high` passes or only lower-than-high advisories are documented.
 - [ ] `npm run scan:secrets` passes.
 - [ ] `npm run check:mcp-isolation` passes.

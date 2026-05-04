@@ -10,7 +10,7 @@ Slack and Google Workspace are defaults for first launch. Other ingress channels
 
 ## Guided Onboarding Skill
 
-If you are using an AI coding assistant in this repository, ask it to use `.ai/skills/first-launch/SKILL.md`. That skill keeps the setup on the supported Vercel-first path, tracks each required provider step, and avoids asking you to paste secrets into chat.
+If you are using an AI coding assistant in this repository, use the registered `first-launch` skill. The canonical skill lives in `.ai/skills/first-launch/SKILL.md` and is discovered through `.claude/skills`, `.agents/skills`, and `.cursor/skills`.
 
 ## Path A: You Have Not Deployed Yet
 
@@ -128,11 +128,20 @@ npm run doctor:first-launch -- --health-url https://<your-vercel-domain>
 
 The doctor checks local env presence, Vercel health, Google OAuth/template access, Slack auth, and Pinecone access. It does not print secret values.
 
+When diagnosing a stuck Workflow deployment, run:
+
+```bash
+npm run build
+npm run check:vercel-output
+```
+
+The check must confirm both API functions and Workflow runtime functions are present in `.vercel/output`.
+
 ## 7. Configure Slack
 
 In your Slack app:
 
-1. Add bot scopes: `chat:write`, `commands`, `files:read`, `channels:history`.
+1. Add bot scopes: `app_mentions:read`, `channels:history`, `chat:write`, `commands`, `files:read`.
 2. Add `groups:history` only if private channels should work.
 3. Set Events API request URL:
 
@@ -140,14 +149,24 @@ In your Slack app:
 https://<your-vercel-domain>/api/slack/events
 ```
 
-4. Subscribe to `message.channels`.
+4. Subscribe to bot event `message.channels`.
 5. Create `/estimate` with the same request URL.
 6. Reinstall the Slack app.
 7. Invite the bot to the target channel.
 
+The first-launch runtime handles `!estimate` channel messages and `/estimate` slash commands. Do not subscribe `app_mention` or `message.im` for first launch unless matching handlers are added and tested.
+
 ## 8. Optional: Seed Knowledge Base
 
 First launch can work without curated historical data. Seed after the first successful run unless you already have past estimates/proposals ready.
+
+Optional knowledge-base source variables:
+
+- `GDRIVE_ESTIMATIONS_FOLDER_ID`
+- `GDRIVE_PROPOSALS_FOLDER_ID`
+- `CASE_STUDIES_BASE_URL`
+
+First launch can succeed with an empty Pinecone index, but retrieval quality improves only after seeding native Google Sheets estimations, Google Docs proposals, or public case studies.
 
 ```bash
 npm run seed
@@ -167,6 +186,8 @@ Or:
 /estimate Build a customer portal with authentication, admin reporting, Stripe billing, and CRM sync.
 ```
 
+`/estimate` requires at least 20 characters of project description. Shorter input returns an ephemeral Slack rejection and does not start a workflow.
+
 First launch is complete when:
 
 - Slack acknowledges the request.
@@ -185,4 +206,5 @@ First launch is complete when:
 | Google template copy fails | Template not shared with OAuth account | Share templates or regenerate them with the OAuth account |
 | Drive output fails with 403 | Root folder not writable | Share the folder or use a folder owned by the OAuth account |
 | Pinecone returns dimension errors | Index was created with the wrong embedding model | Recreate and seed the index with `voyage-3` settings |
+| Slack posts "workflow started" but no thread updates happen | Workflow runtime functions are missing from deployment | Run `npm run build` and `npm run check:vercel-output`; redeploy only after both API and Workflow functions are emitted |
 | Workflow does not start | Vercel env or Workflow deployment issue | Check Vercel logs and rerun `npm run build` locally |

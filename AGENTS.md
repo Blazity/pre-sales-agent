@@ -37,6 +37,8 @@ Run these before considering a change complete:
 ```bash
 npm run typecheck
 npm test
+npm run build
+npm run check:vercel-output
 npm run audit:high
 npm run scan:secrets
 npm run check:mcp-isolation

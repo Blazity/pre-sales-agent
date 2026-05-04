@@ -17,7 +17,7 @@
     "node": ">=20.18.1"
   },
   "scripts": {
-    "build": "workflow validate --strict && tsc",
+    "build": "workflow validate --strict && npm run typecheck && tsx scripts/build-vercel-output.ts",
     "typecheck": "tsc --noEmit",
     "dev": "npx vercel dev",
     "dev:vercel": "npx vercel dev",
@@ -25,6 +25,7 @@
     "setup:google-templates": "tsx scripts/setup-google-templates.ts",
     "doctor:first-launch": "tsx scripts/doctor-first-launch.ts",
     "check:vercel-sandbox": "tsx scripts/check-vercel-sandbox.ts",
+    "check:vercel-output": "tsx scripts/check-vercel-output.ts",
     "test": "tsx --test src/**/*.test.ts .ai/checks/*.test.ts",
     "audit:high": "npm audit --audit-level=high",
     "scan:secrets": "tsx scripts/scan-secrets.ts",
@@ -59,6 +60,7 @@
   "devDependencies": {
     "@types/express": "latest",
     "@types/node": "latest",
+    "esbuild": "latest",
     "tsx": "latest",
     "typescript": "latest"
   },

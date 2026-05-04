@@ -2,6 +2,7 @@ import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { findSkillDiscoveryProblems } from "../../src/onboarding/skill-discovery.js";
 
 export interface RepoSnapshot {
   gitBranch: string;
@@ -10,13 +11,18 @@ export interface RepoSnapshot {
   agentsMd: string;
   claudeMd: string;
   lessonsMd: string;
+  firstLaunchMd: string;
+  setupMd: string;
+  deploymentVercelMd: string;
   architectureMd: string;
   mcpToolsMd: string;
+  skillsReadmeMd: string;
   codeReviewSkillMd: string;
   codeReviewChecklistMd: string;
   orchestratorTs: string;
   slackInteractionTs: string;
   mcpServerSources: string[];
+  skillLinkEntries: Record<string, string>;
 }
 
 export type DriftFindingCode =
@@ -28,7 +34,10 @@ export type DriftFindingCode =
   | "mcp-tool-not-registered"
   | "allowed-tool-missing-step"
   | "review-gate-missing"
-  | "script-missing";
+  | "script-missing"
+  | "vercel-output-check-missing"
+  | "skill-discovery-missing"
+  | "slack-first-launch-doc-missing";
 
 export interface DriftFinding {
   code: DriftFindingCode;
@@ -51,6 +60,8 @@ const ALLOWED_TOOL_STEP_EXEMPTIONS = new Set([
 const REQUIRED_REVIEW_GATES = [
   "npm run typecheck",
   "npm test",
+  "npm run build",
+  "npm run check:vercel-output",
   "npm run audit:high",
   "npm run scan:secrets",
   "npm run check:mcp-isolation",
@@ -240,6 +251,9 @@ export function checkAiDocsDrift(snapshot: RepoSnapshot): DriftFinding[] {
   findings.push(...checkMcpToolDocs(snapshot));
   findings.push(...checkAllowedToolSteps(snapshot));
   findings.push(...checkReviewGates(snapshot));
+  findings.push(...checkVercelOutputGate(snapshot));
+  findings.push(...checkSkillDiscovery(snapshot));
+  findings.push(...checkSlackFirstLaunchDocs(snapshot));
   findings.push(...checkPackageScripts(snapshot));
 
   return findings;
@@ -386,17 +400,77 @@ function checkReviewGates(snapshot: RepoSnapshot): DriftFinding[] {
 }
 
 function checkPackageScripts(snapshot: RepoSnapshot): DriftFinding[] {
+  const findings: DriftFinding[] = [];
+
   try {
     const packageJson = JSON.parse(snapshot.packageJson) as { scripts?: Record<string, string> };
     const checkAiDocsScript = packageJson.scripts?.["check:ai-docs"];
-    if (checkAiDocsScript && invokesAiDocsDriftChecker(checkAiDocsScript)) {
-      return [];
+    if (!checkAiDocsScript || !invokesAiDocsDriftChecker(checkAiDocsScript)) {
+      findings.push(finding("script-missing", "package.json scripts.check:ai-docs must run .ai/checks/check-ai-docs-drift.ts."));
     }
+
+    if (!packageJson.scripts?.["check:vercel-output"]) {
+      findings.push(finding("script-missing", "package.json must define npm run check:vercel-output."));
+    }
+
+    return findings;
   } catch (error) {
     return [finding("script-missing", `Could not parse package.json: ${error instanceof Error ? error.message : String(error)}`)];
   }
+}
 
-  return [finding("script-missing", "package.json scripts.check:ai-docs must run .ai/checks/check-ai-docs-drift.ts.")];
+function checkVercelOutputGate(snapshot: RepoSnapshot): DriftFinding[] {
+  const command = "npm run check:vercel-output";
+  const docs = {
+    "AGENTS.md": snapshot.agentsMd,
+    ".github/workflows/ci.yml": snapshot.ciWorkflow,
+  };
+
+  return Object.entries(docs).flatMap(([name, source]) => {
+    if (source.includes(command)) {
+      return [];
+    }
+
+    return [finding("vercel-output-check-missing", `${name} must list ${command}.`)];
+  });
+}
+
+function checkSkillDiscovery(snapshot: RepoSnapshot): DriftFinding[] {
+  const findings = findSkillDiscoveryProblems(snapshot.skillLinkEntries).map((problem) =>
+    finding("skill-discovery-missing", problem)
+  );
+
+  for (const required of [".claude/skills", ".agents/skills", ".cursor/skills"]) {
+    if (!snapshot.skillsReadmeMd.includes(required)) {
+      findings.push(finding("skill-discovery-missing", `.ai/skills/README.md must document ${required}.`));
+    }
+  }
+
+  return findings;
+}
+
+function checkSlackFirstLaunchDocs(snapshot: RepoSnapshot): DriftFinding[] {
+  const docs = [snapshot.firstLaunchMd, snapshot.setupMd, snapshot.deploymentVercelMd].join("\n");
+  const required = [
+    "app_mentions:read",
+    "channels:history",
+    "chat:write",
+    "commands",
+    "files:read",
+    "message.channels",
+    "20 characters",
+    "GDRIVE_ESTIMATIONS_FOLDER_ID",
+    "GDRIVE_PROPOSALS_FOLDER_ID",
+    "CASE_STUDIES_BASE_URL",
+  ];
+
+  return required.flatMap((item) => {
+    if (docs.includes(item)) {
+      return [];
+    }
+
+    return [finding("slack-first-launch-doc-missing", `First-launch docs must mention ${item}.`)];
+  });
 }
 
 function invokesAiDocsDriftChecker(script: string): boolean {
@@ -420,13 +494,18 @@ export function loadRepoSnapshot(root: string): RepoSnapshot {
     agentsMd: readOptionalFile(root, "AGENTS.md"),
     claudeMd: readOptionalFile(root, "CLAUDE.md"),
     lessonsMd: readOptionalFile(root, ".ai/lessons.md"),
+    firstLaunchMd: readOptionalFile(root, "docs/first-launch.md"),
+    setupMd: readOptionalFile(root, "docs/setup.md"),
+    deploymentVercelMd: readOptionalFile(root, "docs/deployment/vercel.md"),
     architectureMd: readOptionalFile(root, ".ai/architecture.md"),
     mcpToolsMd: readOptionalFile(root, ".ai/mcp-tools.md"),
+    skillsReadmeMd: readOptionalFile(root, ".ai/skills/README.md"),
     codeReviewSkillMd: readOptionalFile(root, ".ai/skills/code-review/SKILL.md"),
     codeReviewChecklistMd: readOptionalFile(root, ".ai/skills/code-review/references/checklist.md"),
     orchestratorTs: readOptionalFile(root, "src/agents/orchestrator.ts"),
     slackInteractionTs: readOptionalFile(root, "src/mcp-servers/slack-interaction.ts"),
     mcpServerSources: readMcpServerSources(root),
+    skillLinkEntries: readSkillLinkEntries(root),
   };
 }
 
@@ -450,6 +529,32 @@ function readMcpServerSources(root: string): string[] {
     .filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"))
     .sort()
     .map((file) => fs.readFileSync(path.join(mcpServerDir, file), "utf8"));
+}
+
+function readSkillLinkEntries(root: string): Record<string, string> {
+  const entries: Record<string, string> = {};
+  const skillsDir = path.join(root, ".ai/skills");
+
+  if (fs.existsSync(skillsDir)) {
+    for (const skillName of fs.readdirSync(skillsDir)) {
+      const skillPath = path.join(skillsDir, skillName, "SKILL.md");
+      if (fs.existsSync(skillPath)) {
+        entries[`.ai/skills/${skillName}/SKILL.md`] = "file";
+      }
+    }
+  }
+
+  for (const relativePath of [".claude/skills", ".agents/skills", ".cursor/skills"]) {
+    const fullPath = path.join(root, relativePath);
+    if (!fs.existsSync(fullPath)) {
+      continue;
+    }
+
+    const stat = fs.lstatSync(fullPath);
+    entries[relativePath] = stat.isSymbolicLink() ? fs.readlinkSync(fullPath) : "not-symlink";
+  }
+
+  return entries;
 }
 
 function detectDefaultBranch(root: string, ciWorkflow: string): string {

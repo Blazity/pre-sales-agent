@@ -58,18 +58,23 @@ The app uses these runtime defaults when the variables are not set. Set them man
 
 Add optional, seeding, or branding variables later in the Vercel project settings only when needed: `BRAVE_SEARCH_API_KEY`, `FIGMA_API_KEY`, `SLACK_OPS_CHANNEL_ID`, `GDRIVE_OUTPUT_FOLDER_ID`, `GDRIVE_ESTIMATIONS_FOLDER_ID`, `GDRIVE_PROPOSALS_FOLDER_ID`, `AGENCY_PROFILE_PATH`, `AGENCY_NAME`, `AGENCY_ACCENT_COLOR`, and `CASE_STUDIES_BASE_URL`.
 
+First launch can succeed with an empty Pinecone index, but retrieval quality improves only after seeding native Google Sheets estimations, Google Docs proposals, or public case studies.
+
 ## Post-Deploy Setup
 
 After Vercel creates the project:
 
 1. Open the deployed app's `/api/health` endpoint and verify it returns `{"status":"ok","runtime":"vercel","workflow":"enabled"}`.
-2. Set required provider environment variables in Vercel.
-3. Redeploy after environment changes.
-4. Run `npm run doctor:first-launch -- --health-url https://<your-vercel-domain>` from a local checkout.
-5. In Slack, set the Events API request URL to `https://<your-vercel-domain>/api/slack/events`.
-6. In Slack, set the slash command request URL to `https://<your-vercel-domain>/api/slack/events`.
-7. Install or reinstall the Slack app after changing scopes or request URLs.
-8. Send a short test RFP in Slack with `!estimate <brief>` and confirm a Workflow run starts in Vercel.
+2. Run `npm run build` and `npm run check:vercel-output` locally when diagnosing deployment output. The check must confirm both API functions and Workflow runtime functions are present in `.vercel/output`.
+3. Set required provider environment variables in Vercel.
+4. Redeploy after environment changes.
+5. Run `npm run doctor:first-launch -- --health-url https://<your-vercel-domain>` from a local checkout.
+6. In Slack, add bot scopes `app_mentions:read`, `channels:history`, `chat:write`, `commands`, and `files:read`; add `groups:history` only if private channels should work.
+7. In Slack, set the Events API request URL to `https://<your-vercel-domain>/api/slack/events`.
+8. Subscribe to bot event `message.channels`. Do not subscribe `app_mention` or `message.im` for first launch unless matching handlers are added and tested.
+9. In Slack, set the slash command request URL to `https://<your-vercel-domain>/api/slack/events`.
+10. Install or reinstall the Slack app after changing scopes or request URLs.
+11. Send a test RFP in Slack with at least 20 characters, such as `!estimate Build a customer portal with authentication`, and confirm a Workflow run starts in Vercel.
 
 Use `docs/first-launch.md` for the guided first run and `docs/setup.md` for provider-specific setup details.
 

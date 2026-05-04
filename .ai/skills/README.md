@@ -1,6 +1,14 @@
 # Skills
 
-On-demand instruction sets for recurring project tasks. Skills are loaded only when the task matches.
+This directory is the canonical project skill source. Supported harnesses discover it through ai-harness-style symlinks:
+
+- `.claude/skills` -> `../.ai/skills` for Claude Code.
+- `.agents/skills` -> `../.ai/skills` for Codex and agents that read `.agents`.
+- `.cursor/skills` -> `../.ai/skills` for Cursor.
+
+If a Windows checkout cannot materialize symlinks, replace each link with a directory junction or a copied `.ai/skills` directory and run `npm run check:ai-docs`.
+
+On-demand instruction sets for recurring project tasks are loaded only when the task matches.
 
 Always-loaded repo facts belong in `AGENTS.md` and `CLAUDE.md`. Architecture, guardrails, MCP inventory, eval expectations, and lessons live one level up in `.ai/`.
 
