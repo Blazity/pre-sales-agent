@@ -1,23 +1,22 @@
 # Skills
 
-On-demand instruction sets that turn a general-purpose agent into a specialist. Skills are loaded when the task matches — they are NOT always-on context.
+On-demand instruction sets for recurring project tasks. Skills are loaded only when the task matches.
+
+Always-loaded repo facts belong in `AGENTS.md` and `CLAUDE.md`. Architecture, guardrails, MCP inventory, eval expectations, and lessons live one level up in `.ai/`.
 
 ## Structure
 
-Each skill is a directory with:
-- `SKILL.md` — the main instruction file (required)
-- `references/` — deeper reference docs loaded on demand (optional)
+Each skill directory contains:
+
+- `SKILL.md` — required workflow instructions.
+- `references/` — deeper references loaded only when needed.
 
 ## Available Skills
 
-| Skill | Purpose |
-|-------|---------|
-| `add-mcp-server` | Guide for creating new MCP tool servers |
-| `code-review` | Project-specific code review checklist |
-| `first-launch` | Guide a fresh deployment to the first successful Slack estimation run |
+| Skill | Use When |
+|---|---|
+| `add-mcp-server` | Adding a new MCP server or adding tools to an existing MCP server. |
+| `code-review` | Reviewing completed work before commit, push, PR, or merge. |
+| `first-launch` | Guiding a fresh OSS deployment to the first successful Slack-driven estimation. |
 
-## When to Use
-
-- Use `add-mcp-server` when adding a new MCP server or tools to an existing one
-- Use `code-review` when reviewing completed work before committing
-- Use `first-launch` when helping a user complete OSS setup after Deploy with Vercel
+Run `npm run check:ai-docs` after changing skills that mention repo facts, tools, gates, or runtime architecture.

@@ -5,11 +5,12 @@ description: Use when guiding a user from a fresh OSS deployment to the first su
 
 # First Launch
 
-Guide the operator from Deploy Button to first successful agent run. Keep a visible checklist and advance one concrete step at a time.
+Guide the operator from a fresh Vercel deployment to the first successful Slack-driven estimation run. Keep a visible checklist and advance one concrete step at a time.
 
 ## Principles
 
 - Use deploy-first onboarding: get the Vercel shell online, then configure providers and redeploy.
+- Default runtime is Vercel Functions for ingress, Vercel Workflow for durable execution, and Vercel Sandbox for agent workspace isolation.
 - Do not assume every step can be automated. Tell the operator when a dashboard action is required.
 - Never ask the user to paste secrets into chat. Tell them where to set values locally or in Vercel.
 - Prefer verification commands when they exist.
@@ -45,8 +46,6 @@ Expected:
 
 ## Checklist
 
-Track these items:
-
 - [ ] Vercel shell deployed
 - [ ] `/api/health` returns expected payload
 - [ ] Local checkout installed with `npm install`
@@ -67,8 +66,6 @@ Track these items:
 
 ## Required Environment Variables
 
-Explain where values come from:
-
 - `ANTHROPIC_API_KEY`: Anthropic console.
 - `SLACK_BOT_TOKEN`: Slack app OAuth page.
 - `SLACK_SIGNING_SECRET`: Slack app basic information.
@@ -82,8 +79,6 @@ Explain where values come from:
 - `VOYAGE_API_KEY`: Voyage console.
 
 ## Verification Commands
-
-Use:
 
 ```bash
 npm run typecheck
@@ -99,10 +94,13 @@ npm run doctor:first-launch -- --offline
 
 ## Common Blockers
 
-- Health endpoint unreachable: check Vercel deployment logs and the domain.
-- Slack verification fails: confirm `/api/slack/events`, signing secret, env redeploy.
-- Bot sees slash command but not channel messages: subscribe to `message.channels` and invite bot.
-- Google OAuth fails: regenerate refresh token with the same OAuth client.
-- Google Drive 403: root folder/templates are not accessible to the OAuth account.
-- Pinecone dimension mismatch: recreate index for `voyage-3`, 1024 dimensions, cosine.
-- Workflow does not start: check Vercel envs and Workflow deployment logs.
+| Symptom | Likely Cause | Next Step |
+|---|---|---|
+| `/api/health` is unreachable | Vercel deployment failed or wrong domain | Check Vercel deployment logs and verify the domain |
+| Slack URL verification fails | Wrong request URL, missing signing secret, or env not redeployed | Use `/api/slack/events`, set env, redeploy |
+| Slash command works but channel messages do not | Missing event subscription or bot not in channel | Subscribe to `message.channels` and invite the bot |
+| Google OAuth fails | Refresh token generated with the wrong OAuth client | Regenerate `GOOGLE_REFRESH_TOKEN` with the same client |
+| Google Drive returns 403 | Root folder or templates are not accessible to the OAuth account | Share folders/templates or regenerate templates |
+| Pinecone dimension mismatch | Index was created with a model other than Voyage `voyage-3` | Recreate and seed the index with 1024 dimensions and cosine metric |
+| Workflow does not start | Vercel env or Workflow deployment issue | Check Vercel Workflow and Function logs, then run `npm run build` locally |
+| Sandbox workspace fails on Vercel | Vercel Sandbox credentials or runtime setting missing | Run `npm run check:vercel-sandbox` and inspect Vercel env vars |
