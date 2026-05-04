@@ -2,7 +2,15 @@
 
 This guide gets a fresh OSS deployment from "project created" to the first successful Slack estimation run.
 
+This guide covers the supported runtime for the starter today: Vercel Functions, Vercel Workflow, and Vercel Sandbox. It uses Slack as the default request channel and Google Workspace as the default output system.
+
 The intended flow is **deploy first, configure immediately after**. Vercel gives you the public URL that Slack needs, so do not try to finish every provider setup before creating the Vercel project.
+
+Slack and Google Workspace are defaults for first launch. Other ingress channels or output systems should be treated as extension work after this guide succeeds.
+
+## Guided Onboarding Skill
+
+If you are using an AI coding assistant in this repository, ask it to use `.ai/skills/first-launch/SKILL.md`. That skill keeps the setup on the supported Vercel-first path, tracks each required provider step, and avoids asking you to paste secrets into chat.
 
 ## Path A: You Have Not Deployed Yet
 
