@@ -1,6 +1,6 @@
 # Setup Guide
 
-This guide is the provider setup reference. For the shortest deploy-first path to a working Slack run, start with `docs/first-launch.md`.
+This guide is the provider setup reference. For the guided implementation path from Vercel deployment to the first successful run, start with `docs/first-launch.md` and return here only when you need provider-specific detail.
 
 ## Prerequisites
 
@@ -9,6 +9,8 @@ This guide is the provider setup reference. For the shortest deploy-first path t
 - A Google Cloud project with OAuth credentials.
 - Anthropic, Pinecone, and Voyage API keys.
 - A Vercel project with Workflow enabled by the deployment.
+
+The supported deployment target for this starter is Vercel. The setup steps assume Vercel Functions, Vercel Workflow, and Vercel Sandbox.
 
 ## 1. Verify the Clone
 
