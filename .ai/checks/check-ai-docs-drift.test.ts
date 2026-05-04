@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   checkAiDocsDrift,
   parseAllowedTools,
+  parseExternalMcpTools,
   parseMcpServerTools,
   parseToolToStep,
   parseWaitForReplyTimeoutMinutes,
@@ -113,6 +114,12 @@ const TOOL_TO_STEP: Record<string, number> = {
   docs_write_sections: 4,
   sheets_create_estimation: 4,
 };
+mcpServers: {
+  "figma": {
+    command: "npx",
+    args: ["-y", "figma-developer-mcp", "--stdio"],
+  },
+},
 allowedTools: [
   "mcp__knowledge-base__search_past_estimations",
   "mcp__knowledge-base__search_past_proposals",
@@ -169,6 +176,13 @@ test("parses TOOL_TO_STEP entries", () => {
 
 test("parses allowedTools short names", () => {
   assert.ok(parseAllowedTools(snapshot().orchestratorTs).has("drive_export_file"));
+});
+
+test("parses external MCP package registrations", () => {
+  assert.deepEqual([...parseExternalMcpTools(snapshot().orchestratorTs)].sort(), [
+    "download_figma_images",
+    "get_figma_data",
+  ]);
 });
 
 test("parses only the allowedTools array for allowed tool names", () => {
@@ -228,6 +242,18 @@ test("fails on wait_for_reply timeout mismatch", () => {
 test("fails when documented MCP tools miss source registrations", () => {
   const findings = checkAiDocsDrift(snapshot({ mcpToolsMd: snapshot().mcpToolsMd.replace("| web-research | 1 | `web_search` |", "") }));
   assert.ok(findings.some((finding) => finding.code === "mcp-tool-undocumented"));
+});
+
+test("fails when documented MCP tools only exist in allowedTools", () => {
+  const findings = checkAiDocsDrift(snapshot({
+    mcpToolsMd: `${snapshot().mcpToolsMd}\n| typo | 1 | \`stale_tool_name\` |`,
+    orchestratorTs: snapshot().orchestratorTs.replace(
+      '  "mcp__figma__download_figma_images",\n]',
+      '  "mcp__figma__download_figma_images",\n  "mcp__typo__stale_tool_name",\n]',
+    ),
+  }));
+
+  assert.ok(findings.some((finding) => finding.code === "mcp-tool-not-registered"));
 });
 
 test("fails when allowed tools are missing TOOL_TO_STEP entries unless exempt", () => {

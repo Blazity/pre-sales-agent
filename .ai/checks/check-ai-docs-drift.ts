@@ -80,6 +80,13 @@ const REQUIRED_RUNTIME_FACTS = [
   },
 ];
 
+const EXTERNAL_MCP_TOOL_REGISTRY = [
+  {
+    packagePattern: /\bfigma-developer-mcp\b/,
+    tools: ["get_figma_data", "download_figma_images"],
+  },
+];
+
 function finding(code: DriftFindingCode, message: string): DriftFinding {
   return { code, severity: "error", message };
 }
@@ -152,6 +159,22 @@ export function parseAllowedTools(source: string): Set<string> {
 
   for (const match of allowedToolsArray.matchAll(allowedToolPattern)) {
     tools.add(match[1]);
+  }
+
+  return tools;
+}
+
+export function parseExternalMcpTools(source: string): Set<string> {
+  const tools = new Set<string>();
+
+  for (const externalServer of EXTERNAL_MCP_TOOL_REGISTRY) {
+    if (!externalServer.packagePattern.test(source)) {
+      continue;
+    }
+
+    for (const tool of externalServer.tools) {
+      tools.add(tool);
+    }
   }
 
   return tools;
@@ -318,10 +341,10 @@ function checkWaitForReplyTimeout(snapshot: RepoSnapshot): DriftFinding[] {
 function checkMcpToolDocs(snapshot: RepoSnapshot): DriftFinding[] {
   const registeredServerTools = new Set(snapshot.mcpServerSources.flatMap(parseMcpServerTools));
   const documentedTools = parseDocumentedTools(snapshot.mcpToolsMd);
-  const sourceRegisteredTools = new Set([...registeredServerTools, ...parseAllowedTools(snapshot.orchestratorTs)]);
+  const sourceRegisteredTools = new Set([...registeredServerTools, ...parseExternalMcpTools(snapshot.orchestratorTs)]);
   const findings: DriftFinding[] = [];
 
-  for (const tool of [...registeredServerTools].sort()) {
+  for (const tool of [...sourceRegisteredTools].sort()) {
     if (!documentedTools.has(tool)) {
       findings.push(finding("mcp-tool-undocumented", `MCP tool ${tool} is registered in source but missing from .ai/mcp-tools.md.`));
     }
