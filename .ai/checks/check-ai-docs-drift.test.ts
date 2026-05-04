@@ -17,6 +17,8 @@ function snapshot(overrides: Partial<RepoSnapshot> = {}): RepoSnapshot {
       scripts: {
         typecheck: "tsc --noEmit",
         test: "tsx --test src/**/*.test.ts .ai/checks/*.test.ts",
+        build: "workflow validate --strict && npm run typecheck && tsx scripts/build-vercel-output.ts",
+        "check:vercel-output": "tsx scripts/check-vercel-output.ts",
         "audit:high": "npm audit --audit-level=high",
         "scan:secrets": "tsx scripts/scan-secrets.ts",
         "check:mcp-isolation": "rg \"from ['\\\"]\\.\\./\" src/mcp-servers && exit 1 || exit 0",
@@ -30,6 +32,8 @@ jobs:
     steps:
       - run: npm run typecheck
       - run: npm test
+      - run: npm run build
+      - run: npm run check:vercel-output
       - run: npm run audit:high
       - run: npm run scan:secrets
       - run: npm run check:mcp-isolation
@@ -37,7 +41,7 @@ jobs:
     agentsMd: `
 # Pre-Sales Agent
 - Default branch: \`main\`
-- Required gates: \`npm run typecheck\`, \`npm test\`, \`npm run audit:high\`, \`npm run scan:secrets\`, \`npm run check:mcp-isolation\`, \`npm run check:ai-docs\`
+- Required gates: \`npm run typecheck\`, \`npm test\`, \`npm run build\`, \`npm run check:vercel-output\`, \`npm run audit:high\`, \`npm run scan:secrets\`, \`npm run check:mcp-isolation\`, \`npm run check:ai-docs\`
 `,
     claudeMd: `
 # Pre-Sales Agent
@@ -46,6 +50,27 @@ jobs:
     lessonsMd: `
 # Lessons Learned
 All pull requests target \`main\`.
+`,
+    firstLaunchMd: `
+# First Launch
+Slack scopes: \`app_mentions:read\`, \`channels:history\`, \`chat:write\`, \`commands\`, \`files:read\`.
+Subscribe to \`message.channels\`.
+\`/estimate\` requires at least 20 characters.
+Optional: \`GDRIVE_ESTIMATIONS_FOLDER_ID\`, \`GDRIVE_PROPOSALS_FOLDER_ID\`, \`CASE_STUDIES_BASE_URL\`.
+`,
+    setupMd: `
+# Setup
+Slack scopes: \`app_mentions:read\`, \`channels:history\`, \`chat:write\`, \`commands\`, \`files:read\`.
+Subscribe to \`message.channels\`.
+\`/estimate\` requires at least 20 characters.
+Optional: \`GDRIVE_ESTIMATIONS_FOLDER_ID\`, \`GDRIVE_PROPOSALS_FOLDER_ID\`, \`CASE_STUDIES_BASE_URL\`.
+`,
+    deploymentVercelMd: `
+# Vercel
+Slack scopes: \`app_mentions:read\`, \`channels:history\`, \`chat:write\`, \`commands\`, \`files:read\`.
+Subscribe to \`message.channels\`.
+\`/estimate\` requires at least 20 characters.
+Optional: \`GDRIVE_ESTIMATIONS_FOLDER_ID\`, \`GDRIVE_PROPOSALS_FOLDER_ID\`, \`CASE_STUDIES_BASE_URL\`.
 `,
     architectureMd: `
 # Architecture
@@ -78,6 +103,12 @@ The default runtime uses Vercel Functions, Vercel Workflow, and Vercel Sandbox.
 
 \`wait_for_reply\` waits for up to 15 minutes.
 `,
+    skillsReadmeMd: `
+# Skills
+.claude/skills -> ../.ai/skills
+.agents/skills -> ../.ai/skills
+.cursor/skills -> ../.ai/skills
+`,
     codeReviewSkillMd: `
 # Code Review
 - Scope
@@ -85,6 +116,8 @@ The default runtime uses Vercel Functions, Vercel Workflow, and Vercel Sandbox.
 - Checklist
 - TypeScript
 - Tests
+- Build
+- Vercel output check
 - Dependency audit
 - Secret scan
 - AI docs drift
@@ -94,6 +127,8 @@ The default runtime uses Vercel Functions, Vercel Workflow, and Vercel Sandbox.
 # Code Review Checklist
 - [ ] \`npm run typecheck\` passes
 - [ ] \`npm test\` passes
+- [ ] \`npm run build\` passes
+- [ ] \`npm run check:vercel-output\` passes
 - [ ] \`npm run audit:high\` passes or non-high advisories are documented
 - [ ] \`npm run scan:secrets\` passes
 - [ ] \`npm run check:mcp-isolation\` passes
@@ -158,6 +193,12 @@ server.tool(
       `server.tool("fetch_web_page", "", {}, async () => ({})); server.tool("web_search", "", {}, async () => ({}));`,
       `server.tool("post_message", "", {}, async () => ({})); server.tool("wait_for_reply", "", {}, async () => ({}));`,
     ],
+    skillLinkEntries: {
+      ".ai/skills/first-launch/SKILL.md": "file",
+      ".claude/skills": "../.ai/skills",
+      ".agents/skills": "../.ai/skills",
+      ".cursor/skills": "../.ai/skills",
+    },
     ...overrides,
   };
 }
@@ -290,4 +331,34 @@ test("fails when check:ai-docs script only echoes the checker path", () => {
   }));
 
   assert.ok(findings.some((finding) => finding.code === "script-missing"));
+});
+
+test("fails when project skill discovery symlink is missing", () => {
+  const findings = checkAiDocsDrift(snapshot({
+    skillLinkEntries: {
+      ".ai/skills/first-launch/SKILL.md": "file",
+      ".claude/skills": "../.ai/skills",
+      ".agents/skills": "../.ai/skills",
+    },
+  }));
+
+  assert.ok(findings.some((finding) => finding.code === "skill-discovery-missing"));
+});
+
+test("fails when vercel output check is absent from CI", () => {
+  const findings = checkAiDocsDrift(snapshot({
+    ciWorkflow: "run: npm run typecheck",
+  }));
+
+  assert.ok(findings.some((finding) => finding.code === "vercel-output-check-missing"));
+});
+
+test("fails when first-launch docs omit Slack setup details", () => {
+  const findings = checkAiDocsDrift(snapshot({
+    firstLaunchMd: "Slack setup",
+    setupMd: "Setup",
+    deploymentVercelMd: "Deployment",
+  }));
+
+  assert.ok(findings.some((finding) => finding.code === "slack-first-launch-doc-missing"));
 });

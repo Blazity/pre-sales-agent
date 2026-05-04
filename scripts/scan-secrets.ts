@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 
 interface Rule {
   name: string;
@@ -25,6 +25,7 @@ function trackedFiles(): string[] {
     .split("\0")
     .filter(Boolean)
     .filter((file) => existsSync(file))
+    .filter((file) => statSync(file).isFile())
     .filter((file) => !excludedFiles.has(file));
 }
 

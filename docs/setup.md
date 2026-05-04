@@ -31,6 +31,7 @@ Required bot token scopes:
 
 | Scope | Why it is needed |
 |---|---|
+| `app_mentions:read` | Reserved for app-mention support; keep configured so the app can be extended without reinstalling scopes |
 | `chat:write` | Post status updates, clarification questions, and final links |
 | `commands` | Receive the `/estimate` slash command |
 | `files:read` | Download files attached to estimation requests |
@@ -44,6 +45,8 @@ After the Vercel deployment has a public URL:
 3. Subscribe the bot to `message.groups` if private-channel support is needed.
 4. Create the `/estimate` slash command with the same request URL.
 5. Install or reinstall the app into the workspace.
+
+The first-launch runtime handles `!estimate` channel messages and `/estimate` slash commands. Do not subscribe `app_mention` or `message.im` for first launch unless matching handlers are added and tested.
 
 Set these environment variables:
 
@@ -161,6 +164,8 @@ Seed from Google Drive folders:
 npm run seed
 ```
 
+First launch can succeed with an empty Pinecone index, but retrieval quality improves only after seeding native Google Sheets estimations, Google Docs proposals, or public case studies from `CASE_STUDIES_BASE_URL`.
+
 For later updates:
 
 ```bash
@@ -185,6 +190,13 @@ For a real implementation, copy `config/agency.example.json` to an untracked fil
 ## 7. Deploy on Vercel
 
 Use the Deploy Button in the README, then confirm:
+
+```bash
+npm run build
+npm run check:vercel-output
+```
+
+The output check must confirm both API functions and Workflow runtime functions are present in `.vercel/output`.
 
 ```text
 https://<your-vercel-domain>/api/health
@@ -218,5 +230,7 @@ or:
 ```text
 /estimate Build a customer portal with authentication, admin reporting, Stripe billing, and CRM sync.
 ```
+
+`/estimate` requires at least 20 characters of project description. Shorter input returns an ephemeral Slack rejection and does not start a workflow.
 
 A healthy run should acknowledge the request in Slack, start a Vercel Workflow run, create Google Docs and Sheets outputs, and post final links back to the Slack thread.

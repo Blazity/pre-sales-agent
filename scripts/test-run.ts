@@ -50,7 +50,7 @@ await runEstimationWorkflow({
   rfpText,
   clarificationAnswers: "No clarification needed. Make reasonable assumptions based on the RFP, industry standards, and your analysis. Do not ask questions.",
   outputFolderId: process.env.GDRIVE_OUTPUT_FOLDER_ID,
-  skipSteps: ["presentation", "knowledge_base", "slack"],
+  skipSteps: ["slack"],
 });
 
 const elapsed = ((Date.now() - start) / 1000).toFixed(1);

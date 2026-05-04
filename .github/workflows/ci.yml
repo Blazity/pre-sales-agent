@@ -35,6 +35,12 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Build Vercel output
+        run: npm run build
+
+      - name: Vercel output check
+        run: npm run check:vercel-output
+
       - name: Dependency audit
         run: npm run audit:high
 
@@ -43,3 +49,6 @@ jobs:
 
       - name: MCP isolation
         run: npm run check:mcp-isolation
+
+      - name: AI docs drift
+        run: npm run check:ai-docs

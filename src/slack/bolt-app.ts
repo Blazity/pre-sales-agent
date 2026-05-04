@@ -1,13 +1,12 @@
-// @slack/bolt is CommonJS — use createRequire to load it in an ESM context
-import { createRequire } from "module";
-const _require = createRequire(import.meta.url);
-const { App, ExpressReceiver, LogLevel } = _require("@slack/bolt") as typeof import("@slack/bolt");
+import * as slackBolt from "@slack/bolt";
 import { WebClient } from "@slack/web-api";
 
 import { env } from "../lib/env.js";
 import { startEstimationWorkflow } from "../workflows/launcher.js";
 import { logger } from "../lib/logger.js";
 import { extractAllDriveLinks } from "../lib/google-drive.js";
+
+const { App, ExpressReceiver, LogLevel } = slackBolt;
 
 /**
  * Validate the bot token by calling auth.test().  Returns the bot identity on

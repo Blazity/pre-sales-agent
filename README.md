@@ -27,7 +27,7 @@ This starter is designed for first launch on Vercel. The supported path today is
 
 1. Click **Deploy with Vercel** to create the project and get a public URL.
 2. Follow `docs/first-launch.md` from the deployed shell to the first successful Slack estimation run.
-3. If you are working with an AI coding assistant, ask it to use `.ai/skills/first-launch/SKILL.md`. That is the onboarding skill for guided setup.
+3. If you are working with an AI coding assistant, use the registered `first-launch` skill. The canonical skill lives in `.ai/skills/first-launch/SKILL.md` and is discovered through `.claude/skills`, `.agents/skills`, and `.cursor/skills`.
 4. After the first run works, read `docs/architecture.md` to understand the runtime, orchestration, MCP tools, and extension points.
 5. For new MCP tools, use `.ai/skills/add-mcp-server/SKILL.md` and keep the MCP isolation rules intact.
 
