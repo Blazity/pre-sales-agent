@@ -86,6 +86,16 @@ Format: Context → Problem → Rule → Recovery → Applies to.
 
 ---
 
+### Slack must use the stable Vercel production domain
+
+**Context:** Vercel shows deployment-specific preview URLs as well as stable project/production domains.
+**Problem:** If Slack is configured with an immutable deployment URL from the first shell deploy, later redeploys with environment variables do not update the URL Slack calls. `/api/health` and local provider checks can pass on the current deployment while Slack still hits the stale deployment.
+**Rule:** Configure Slack Events and slash commands with the stable production/project domain plus `/api/slack/events`. Run `npm run doctor:first-launch -- --health-url <stable-domain>` after redeploy; it sends a signed Slack URL verification probe to the deployed ingress.
+**Recovery:** If Slack never reaches the current deployment, compare the URL in Slack app settings with the URL printed by `doctor:first-launch`, update both Events API and slash command URLs, reinstall the Slack app, and redeploy after env changes.
+**Applies to:** `docs/first-launch.md`, `.ai/skills/first-launch/SKILL.md`, `scripts/doctor-first-launch.ts`.
+
+---
+
 ### Estimation calibration: rate card, AI factor, page budget
 
 **Context:** First real estimation (Assessio) priced 3× too high, produced 19-page document, recommended outdated tech.

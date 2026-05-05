@@ -24,6 +24,7 @@
     "seed": "tsx scripts/seed-knowledge-base.ts",
     "setup:google-templates": "tsx scripts/setup-google-templates.ts",
     "doctor:first-launch": "tsx scripts/doctor-first-launch.ts",
+    "doctor:seed": "tsx scripts/doctor-seed.ts",
     "check:vercel-sandbox": "tsx scripts/check-vercel-sandbox.ts",
     "check:vercel-output": "tsx scripts/check-vercel-output.ts",
     "test": "tsx --test src/**/*.test.ts .ai/checks/*.test.ts",

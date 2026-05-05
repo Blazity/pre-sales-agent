@@ -46,6 +46,8 @@ After the Vercel deployment has a public URL:
 4. Create the `/estimate` slash command with the same request URL.
 5. Install or reinstall the app into the workspace.
 
+Use the stable Vercel production/project domain, such as `https://<project>.vercel.app` or your custom production domain. Do not use an immutable URL from a single Vercel deployment page unless you also intend to keep Slack pinned to that exact deployment.
+
 The first-launch runtime handles `!estimate` channel messages and `/estimate` slash commands. Do not subscribe `app_mention` or `message.im` for first launch unless matching handlers are added and tested.
 
 Set these environment variables:
@@ -157,14 +159,24 @@ Set:
 | `PINECONE_INDEX` | Defaults to `estimations` |
 | `VOYAGE_API_KEY` | Embedding API access |
 | `VOYAGE_RPM` | Optional local seeding rate limit, defaults to `3` |
+| `GDRIVE_ESTIMATIONS_FOLDER_ID` | Required when running `npm run seed`; source folder of native Google Sheets |
+| `GDRIVE_PROPOSALS_FOLDER_ID` | Required when running `npm run seed`; source folder of native Google Docs |
 
-Seed from Google Drive folders:
+`GDRIVE_ESTIMATIONS_FOLDER_ID` and `GDRIVE_PROPOSALS_FOLDER_ID` are optional for first launch, but they are required for knowledge-base seeding. The seed script does not read local folders. It indexes manually curated Google Drive source folders that the OAuth account can read.
+
+Validate the seed setup before indexing:
+
+```bash
+npm run doctor:seed
+```
+
+Seed from Google Drive folders only after the doctor passes or reports only acceptable empty-folder warnings:
 
 ```bash
 npm run seed
 ```
 
-First launch can succeed with an empty Pinecone index, but retrieval quality improves only after seeding native Google Sheets estimations, Google Docs proposals, or public case studies from `CASE_STUDIES_BASE_URL`.
+First launch can succeed with an empty Pinecone index, but retrieval quality improves only after seeding native Google Sheets estimations, Google Docs proposals, or public case studies from `CASE_STUDIES_BASE_URL`. Uploaded `.xlsx` files and `.docx` files in Drive are skipped by knowledge-base seeding until converted to native Google Sheets or Google Docs.
 
 For later updates:
 
@@ -202,6 +214,8 @@ The output check must confirm both API functions and Workflow runtime functions 
 https://<your-vercel-domain>/api/health
 ```
 
+Use the stable production/project domain for first launch. Vercel also shows deployment-specific preview URLs; those are useful for inspection, but Slack should use the canonical domain that receives later redeploys.
+
 Expected response:
 
 ```json
@@ -218,6 +232,12 @@ Vercel defaults:
 The Deploy Button does not ask for these defaults.
 
 ## 8. Test the Workflow
+
+Before changing Slack, verify the exact ingress URL with:
+
+```bash
+npm run doctor:first-launch -- --health-url https://<your-vercel-domain>
+```
 
 Invite the Slack bot to the target channel, then send either:
 

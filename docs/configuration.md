@@ -28,7 +28,9 @@ By default, the app uses the starter agency profile. For a real agency, copy `co
 
 See `docs/setup.md` for provider setup steps and `docs/deployment/vercel.md` for Vercel-specific defaults.
 
-Run `npm run doctor:first-launch -- --health-url https://<your-vercel-domain>` after setting first-launch environment variables to verify local env presence, Vercel health, Google access, Slack auth, and Pinecone access.
+Run `npm run doctor:first-launch -- --health-url https://<your-vercel-domain>` after setting first-launch environment variables to verify local env presence, Vercel health, deployed Slack ingress, Google access, Slack auth, and Pinecone access. Use the stable production/project domain that Slack will call, not a deployment-specific preview URL.
+
+Run `npm run doctor:seed` before `npm run seed` to verify the knowledge-base source folders, Google OAuth access, Pinecone index settings, and Voyage embeddings. The source folder IDs are optional for first launch, but required when running the seeding command.
 
 ## Template Generation
 
