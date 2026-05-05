@@ -23,13 +23,41 @@ This project is an OSS starter extracted from a production-shaped internal estim
 
 ## Start Here
 
-This starter is designed for first launch on Vercel. The supported path today is Vercel Functions, Vercel Workflow, and Vercel Sandbox.
+This starter is designed to be used with an AI coding agent. The repository includes project instructions, skills, doctors, and review gates so an agent can guide setup step by step instead of leaving operators to stitch together dashboard steps and commands manually.
+
+Use the deploy-first path. Vercel must exist before final Slack setup because Slack needs the deployed public URL.
 
 1. Click **Deploy with Vercel** to create the project and get a public URL.
-2. Follow `docs/first-launch.md` from the deployed shell to the first successful Slack estimation run.
-3. If you are working with an AI coding assistant, use the registered `first-launch` skill. The canonical skill lives in `.ai/skills/first-launch/SKILL.md` and is discovered through `.claude/skills`, `.agents/skills`, and `.cursor/skills`.
-4. After the first run works, read `docs/architecture.md` to understand the runtime, orchestration, MCP tools, and extension points.
-5. For new MCP tools, use `.ai/skills/add-mcp-server/SKILL.md` and keep the MCP isolation rules intact.
+2. Open the cloned repository in your AI coding agent or agent-enabled editor.
+3. Ask the agent to launch the registered `first-launch` onboarding skill.
+4. Follow the skill checklist one step at a time until Slack starts an estimate and Google Docs and Sheets outputs are created.
+5. Seed the knowledge base only after first launch works, unless you already have curated Google Drive source folders ready.
+
+Use this prompt to start guided onboarding:
+
+```text
+Use the first-launch skill in this repository and guide me from a fresh Vercel deployment to the first successful Slack estimation run. Stop after each checklist step and tell me what dashboard action or command to run next.
+```
+
+The canonical onboarding skill lives in `.ai/skills/first-launch/SKILL.md` and is exposed through `.claude/skills`, `.agents/skills`, and `.cursor/skills` for compatible agents.
+
+## Agent Onboarding Order
+
+The `first-launch` skill is the source of truth for the setup sequence. At a high level, the order is:
+
+1. Deploy the Vercel shell.
+2. Choose the stable Vercel production/project domain for Slack. Do not use a one-off deployment URL.
+3. Verify `/api/health`.
+4. Install locally with `npm install`.
+5. Configure provider credentials for Anthropic, Slack, Google Workspace, Pinecone, and Voyage.
+6. Generate or choose Google Docs and Sheets templates.
+7. Set required Vercel environment variables and redeploy.
+8. Run `npm run doctor:first-launch -- --health-url https://<your-vercel-domain>`.
+9. Configure Slack Events and `/estimate` with the same tested stable domain.
+10. Invite the Slack bot to the channel and run the first `!estimate` or `/estimate`.
+11. Run `npm run doctor:seed` and `npm run seed` only after first launch, or when Drive source folders are ready.
+
+After the first run works, read `docs/architecture.md` to understand the runtime, orchestration, MCP tools, and extension points. For new MCP tools, use `.ai/skills/add-mcp-server/SKILL.md` and keep the MCP isolation rules intact.
 
 Slack is the default ingress integration in this starter. Other channels, such as Microsoft Teams, should be treated as extension work after the Vercel first-launch path is working.
 
