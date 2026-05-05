@@ -96,6 +96,16 @@ Format: Context → Problem → Rule → Recovery → Applies to.
 
 ---
 
+### Workflow deployment must include MCP server bundles
+
+**Context:** Slack ingress can acknowledge a request before the long-running Vercel Workflow starts the Claude Agent SDK orchestration.
+**Problem:** A deployment can pass `/api/health` and Slack ingress checks while the workflow later fails because standalone MCP stdio server entrypoints are missing from the Workflow runtime output.
+**Rule:** Treat `npm run check:vercel-output` as a runtime contract check for API routes, Workflow routes, and bundled MCP server entrypoints.
+**Recovery:** Run `npm run build`, then `npm run check:vercel-output`. If MCP bundles are missing, fix the build output before redeploying.
+**Applies to:** `scripts/build-vercel-output.ts`, `scripts/check-vercel-output.ts`, `src/agents/orchestrator.ts`.
+
+---
+
 ### Estimation calibration: rate card, AI factor, page budget
 
 **Context:** First real estimation (Assessio) priced 3× too high, produced 19-page document, recommended outdated tech.

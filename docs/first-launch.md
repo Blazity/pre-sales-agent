@@ -138,6 +138,7 @@ npm run check:vercel-output
 ```
 
 The check must confirm both API functions and Workflow runtime functions are present in `.vercel/output`.
+It also verifies the bundled MCP server entrypoints that the workflow spawns during the agent run. If those bundles are missing, Slack can acknowledge the request but the workflow will fail after startup.
 
 ## 7. Configure Slack
 
@@ -216,5 +217,6 @@ First launch is complete when:
 | Google template copy fails | Template not shared with OAuth account | Share templates or regenerate them with the OAuth account |
 | Drive output fails with 403 | Root folder not writable | Share the folder or use a folder owned by the OAuth account |
 | Pinecone returns dimension errors | Index was created with the wrong embedding model | Recreate and seed the index with `voyage-3` settings |
-| Slack posts "workflow started" but no thread updates happen | Workflow runtime functions are missing from deployment | Run `npm run build` and `npm run check:vercel-output`; redeploy only after both API and Workflow functions are emitted |
+| Slack posts "workflow started" but no thread updates happen | Workflow runtime functions or bundled MCP server entrypoints are missing from deployment | Run `npm run build` and `npm run check:vercel-output`; redeploy only after API, Workflow, and MCP bundle checks pass |
+| Slack thread reports workflow failure after startup | Provider env, template access, Pinecone/Voyage access, or MCP startup failed inside the workflow | Check the Vercel Workflow run logs, run `doctor:first-launch`, fix the reported setup issue, redeploy, and retry |
 | Workflow does not start | Vercel env or Workflow deployment issue | Check Vercel logs and rerun `npm run build` locally |

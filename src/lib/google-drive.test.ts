@@ -15,6 +15,7 @@ const REQUIRED_ENV_VARS: Record<string, string> = {
   GOOGLE_REFRESH_TOKEN: "refresh-token",
   GDRIVE_TEMPLATE_ID: "template-doc-id",
   GDRIVE_ROOT_FOLDER_ID: "root-folder-id",
+  GSHEETS_TEMPLATE_ID: "template-sheet-id",
   PINECONE_API_KEY: "pinecone-key",
   VOYAGE_API_KEY: "voyage-key",
 };

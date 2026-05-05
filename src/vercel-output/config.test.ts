@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   apiFunctionConfig,
+  mcpServerOutputPath,
+  MCP_SERVER_NAMES,
   mergeRoutes,
+  requiredMcpServerOutputFiles,
   type VercelOutputConfig,
 } from "./config.js";
 
@@ -40,4 +43,24 @@ test("apiFunctionConfig emits a Node function config for bundled handlers", () =
     launcherType: "Nodejs",
     shouldAddHelpers: true,
   });
+});
+
+test("MCP server output paths match the workflow bundle runtime root", () => {
+  assert.deepEqual(MCP_SERVER_NAMES, [
+    "knowledge-base",
+    "google-workspace",
+    "web-research",
+    "slack-interaction",
+  ]);
+
+  assert.equal(
+    mcpServerOutputPath("knowledge-base"),
+    ".vercel/output/functions/.well-known/workflow/v1/step.func/mcp-servers/knowledge-base.mjs",
+  );
+  assert.deepEqual(requiredMcpServerOutputFiles(), [
+    ".vercel/output/functions/.well-known/workflow/v1/step.func/mcp-servers/knowledge-base.mjs",
+    ".vercel/output/functions/.well-known/workflow/v1/step.func/mcp-servers/google-workspace.mjs",
+    ".vercel/output/functions/.well-known/workflow/v1/step.func/mcp-servers/web-research.mjs",
+    ".vercel/output/functions/.well-known/workflow/v1/step.func/mcp-servers/slack-interaction.mjs",
+  ]);
 });

@@ -15,6 +15,7 @@ import {
   summarizeResults,
   type DoctorResult,
 } from "./doctor.js";
+import { buildGoogleOAuthUrl, validateGoogleOAuthClientEnv } from "./google-oauth.js";
 
 describe("first-launch doctor core", () => {
   it("classifies required env vars without revealing values", () => {
@@ -137,5 +138,25 @@ describe("seed doctor core", () => {
       seedable: 1,
       unsupported: 2,
     });
+  });
+});
+
+describe("Google OAuth onboarding helpers", () => {
+  it("requires OAuth client env before building an auth URL", () => {
+    assert.deepEqual(validateGoogleOAuthClientEnv({}), ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]);
+    assert.deepEqual(validateGoogleOAuthClientEnv({
+      GOOGLE_CLIENT_ID: "client",
+      GOOGLE_CLIENT_SECRET: "secret",
+    }), []);
+  });
+
+  it("builds an OAuth consent URL with the configured client ID", () => {
+    const url = new URL(buildGoogleOAuthUrl("client-id"));
+
+    assert.equal(url.origin, "https://accounts.google.com");
+    assert.equal(url.searchParams.get("client_id"), "client-id");
+    assert.equal(url.searchParams.get("redirect_uri"), "http://localhost:3333/callback");
+    assert.equal(url.searchParams.get("access_type"), "offline");
+    assert.equal(url.searchParams.get("prompt"), "consent");
   });
 });

@@ -4,6 +4,8 @@ import path from "node:path";
 import { build } from "esbuild";
 import {
   apiFunctionConfig,
+  MCP_SERVER_NAMES,
+  mcpServerOutputPath,
   mergeRoutes,
   type VercelOutputConfig,
 } from "../src/vercel-output/config.js";
@@ -67,6 +69,25 @@ async function bundleApiFunction(entry: string, outDir: string): Promise<void> {
   await writeFile(path.join(functionDir, "package.json"), `${JSON.stringify({ type: "commonjs" }, null, 2)}\n`);
 }
 
+async function bundleMcpServer(name: typeof MCP_SERVER_NAMES[number]): Promise<void> {
+  const localOutfile = path.join(root, "dist", "mcp-servers", `${name}.mjs`);
+  const vercelOutfile = path.join(root, mcpServerOutputPath(name));
+
+  for (const outfile of [localOutfile, vercelOutfile]) {
+    await mkdir(path.dirname(outfile), { recursive: true });
+    await build({
+      entryPoints: [path.join(root, "src", "mcp-servers", `${name}.ts`)],
+      outfile,
+      bundle: true,
+      platform: "node",
+      target: "node20",
+      format: "esm",
+      sourcemap: true,
+      logLevel: "info",
+    });
+  }
+}
+
 async function updateConfig(): Promise<void> {
   const raw = await readFile(configPath, "utf8");
   const config = JSON.parse(raw) as VercelOutputConfig;
@@ -85,6 +106,10 @@ async function main(): Promise<void> {
 
   for (const apiFunction of apiFunctions) {
     await bundleApiFunction(apiFunction.entry, apiFunction.outDir);
+  }
+
+  for (const name of MCP_SERVER_NAMES) {
+    await bundleMcpServer(name);
   }
 
   await updateConfig();

@@ -97,7 +97,7 @@ export function createSlackApp() {
       blocks: [
         { type: "header", text: { type: "plain_text", text: "📋 RFP Received" } },
         { type: "section", text: { type: "mrkdwn", text: "Starting the estimation workflow. I'll post updates in this thread:" } },
-        { type: "section", text: { type: "mrkdwn", text: "1️⃣ RFP Analysis\n2️⃣ Clarifying Questions _(if needed)_\n3️⃣ Google Docs Offer\n4️⃣ Google Slides Presentation" } },
+        { type: "section", text: { type: "mrkdwn", text: "1️⃣ RFP Analysis\n2️⃣ Clarifying Questions _(if needed)_\n3️⃣ Google Docs Offer\n4️⃣ Google Sheets Estimation" } },
       ],
       thread_ts: msg.ts,
     });

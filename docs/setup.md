@@ -209,6 +209,7 @@ npm run check:vercel-output
 ```
 
 The output check must confirm both API functions and Workflow runtime functions are present in `.vercel/output`.
+It also confirms the bundled MCP server entrypoints are present under the Workflow runtime output. Without those bundles, Slack can acknowledge a request but the agent workflow cannot start its tools.
 
 ```text
 https://<your-vercel-domain>/api/health

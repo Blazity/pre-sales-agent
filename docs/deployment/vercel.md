@@ -67,7 +67,7 @@ First launch can succeed with an empty Pinecone index, but retrieval quality imp
 After Vercel creates the project:
 
 1. Open the deployed app's `/api/health` endpoint and verify it returns `{"status":"ok","runtime":"vercel","workflow":"enabled"}`.
-2. Run `npm run build` and `npm run check:vercel-output` locally when diagnosing deployment output. The check must confirm both API functions and Workflow runtime functions are present in `.vercel/output`.
+2. Run `npm run build` and `npm run check:vercel-output` locally when diagnosing deployment output. The check must confirm API functions, Workflow runtime functions, bundled MCP server entrypoints, and static assets are present in `.vercel/output`.
 3. Set required provider environment variables in Vercel.
 4. Redeploy after environment changes.
 5. Run `npm run doctor:first-launch -- --health-url https://<your-vercel-domain>` from a local checkout. Use the same canonical domain you will paste into Slack.
@@ -87,6 +87,8 @@ Use the Vercel CLI against the cloned project and environment. No separate datab
 ```bash
 npm run dev:vercel
 ```
+
+Do not configure the Vercel Development Command to call `vercel dev`; that causes Vercel's recursive invocation error. The repository intentionally does not define a `dev` script for this reason.
 
 To smoke-test Sandbox credentials:
 

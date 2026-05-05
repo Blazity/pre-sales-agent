@@ -3,7 +3,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { safeReport, type EstimationJob, type runEstimationWorkflow } from "./orchestrator.js";
+import {
+  buildWorkflowFailureSlackMessage,
+  resolveAgentWorkspace,
+  resolveMcpServerPath,
+  safeReport,
+  type EstimationJob,
+  type runEstimationWorkflow,
+} from "./orchestrator.js";
 import type { WorkflowReporter } from "../lib/workflow-reporter.js";
 
 // ── Type-shape tests (no I/O, no mocks needed) ────────────────────────────────
@@ -59,6 +66,45 @@ describe("orchestrator tool allowlist", () => {
     const currentFile = fileURLToPath(import.meta.url);
     const source = fs.readFileSync(path.join(path.dirname(currentFile), "orchestrator.ts"), "utf-8");
     assert.ok(!source.includes("\"mcp__google-workspace__drive_search_files\""));
+  });
+});
+
+describe("orchestrator runtime paths", () => {
+  it("uses writable scratch space for the agent workspace on Vercel", () => {
+    assert.equal(
+      resolveAgentWorkspace("/var/task", { VERCEL: "1" }),
+      "/tmp/pre-sales-agent-workspace",
+    );
+  });
+
+  it("uses the repo workspace outside Vercel", () => {
+    assert.equal(
+      resolveAgentWorkspace("/repo", {}),
+      path.join("/repo", "workspace"),
+    );
+  });
+
+  it("resolves MCP server bundles from the workflow runtime root", () => {
+    assert.equal(
+      resolveMcpServerPath("knowledge-base", "/var/task", "/repo", { VERCEL: "1" }),
+      "/var/task/mcp-servers/knowledge-base.mjs",
+    );
+  });
+
+  it("resolves MCP server bundles from local dist outside Vercel", () => {
+    assert.equal(
+      resolveMcpServerPath("knowledge-base", "/repo/src/agents", "/repo", {}),
+      "/repo/dist/mcp-servers/knowledge-base.mjs",
+    );
+  });
+});
+
+describe("workflow failure Slack message", () => {
+  it("builds an actionable failure message without leaking internals", () => {
+    assert.equal(
+      buildWorkflowFailureSlackMessage(),
+      "Estimation workflow failed after startup. Check the Vercel Workflow run logs, fix the reported setup issue, then retry the request.",
+    );
   });
 });
 

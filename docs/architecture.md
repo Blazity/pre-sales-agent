@@ -97,6 +97,8 @@ The orchestrator prompt treats RFPs, Slack messages, clarifications, and file ma
 
 MCP servers in `src/mcp-servers/` are standalone stdio processes. They must not import from application internals under `src/`. Each server loads its own environment configuration and exposes MCP-compatible content blocks.
 
+The Vercel build bundles these standalone servers into the Workflow runtime output. `npm run check:vercel-output` verifies those entrypoints exist, because the workflow starts them as child stdio processes during an estimation run.
+
 Current MCP servers:
 
 | Server | File | Main tools | Purpose |
