@@ -10,6 +10,8 @@ import "dotenv/config";
 
 import {
   buildHealthUrl,
+  buildSlackEventsUrl,
+  buildSlackUrlVerificationRequest,
   classifyEnv,
   hasBlockingFailures,
   isHealthyPayload,
@@ -69,6 +71,51 @@ async function checkHealth(urlInput?: string): Promise<DoctorResult> {
     return result("FAIL", "Vercel", "Health endpoint", `${url} did not return the expected health payload`);
   } catch (err) {
     return result("FAIL", "Vercel", "Health endpoint", err instanceof Error ? err.message : String(err));
+  }
+}
+
+function isExpectedSlackChallengeResponse(text: string, challenge: string): boolean {
+  if (text.trim() === challenge) return true;
+  try {
+    const body = JSON.parse(text) as { challenge?: unknown };
+    return body.challenge === challenge;
+  } catch {
+    return false;
+  }
+}
+
+async function checkSlackIngress(urlInput?: string): Promise<DoctorResult> {
+  if (!urlInput) {
+    return result("WARN", "Vercel", "Slack ingress", "Skipped; pass --health-url or set VERCEL_PROJECT_URL");
+  }
+
+  const signingSecret = env("SLACK_SIGNING_SECRET");
+  if (!signingSecret) {
+    return result("FAIL", "Vercel", "Slack ingress", "SLACK_SIGNING_SECRET missing locally; cannot sign smoke test");
+  }
+
+  const url = buildSlackEventsUrl(urlInput);
+  const challenge = `doctor-${Date.now()}`;
+  const request = buildSlackUrlVerificationRequest({
+    signingSecret,
+    timestamp: Math.floor(Date.now() / 1000).toString(),
+    challenge,
+  });
+
+  try {
+    const response = await fetchJson(url, {
+      method: "POST",
+      headers: request.headers,
+      body: request.body,
+    });
+    if (response.ok && isExpectedSlackChallengeResponse(response.text, challenge)) {
+      return result("PASS", "Vercel", "Slack ingress", `${url} accepted a signed Slack URL verification request`);
+    }
+
+    const detail = response.text.trim().slice(0, 160) || "empty response";
+    return result("FAIL", "Vercel", "Slack ingress", `${url} returned HTTP ${response.status}: ${detail}`);
+  } catch (err) {
+    return result("FAIL", "Vercel", "Slack ingress", err instanceof Error ? err.message : String(err));
   }
 }
 
@@ -219,6 +266,7 @@ async function main(): Promise<void> {
     results.push(result("WARN", "Network", "Live provider checks", "Skipped because --offline was provided"));
   } else {
     results.push(await checkHealth(healthUrl));
+    results.push(await checkSlackIngress(healthUrl));
     results.push(...await checkGoogle());
     results.push(await checkSlack());
     results.push(await checkPinecone());

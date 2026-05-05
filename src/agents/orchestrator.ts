@@ -2,6 +2,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { WebClient } from "@slack/web-api";
 import { logger } from "../lib/logger.js";
 import { createWorkflowReporter, type WorkflowReporter } from "../lib/workflow-reporter.js";
 import { buildAgencyIdentityPrompt, loadAgencyProfile } from "../config/agency-profile.js";
@@ -9,10 +10,11 @@ import { buildAgencyIdentityPrompt, loadAgencyProfile } from "../config/agency-p
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "../../");
-const WORKSPACE = path.join(ROOT, "workspace");
 
 const STEP_NAMES = ["Initializing", "Analysis", "Clarification", "Value Discovery", "Offer"] as const;
 const BRAVE_COST_PER_QUERY = 0.005;
+const MCP_SERVER_NAMES = ["knowledge-base", "google-workspace", "web-research", "slack-interaction"] as const;
+type McpServerName = typeof MCP_SERVER_NAMES[number];
 
 const TOOL_TO_STEP: Record<string, number> = {
   search_past_estimations: 1,
@@ -33,6 +35,44 @@ function detectStep(toolName: string, currentStep: number): number {
   const short = toolName.replace(/^mcp__[^_]+__/, "");
   const mapped = TOOL_TO_STEP[short];
   return mapped && mapped > currentStep ? mapped : currentStep;
+}
+
+export function resolveAgentWorkspace(root = ROOT, env: NodeJS.ProcessEnv = process.env): string {
+  if (env.AGENT_WORKSPACE_DIR?.trim()) return env.AGENT_WORKSPACE_DIR.trim();
+  return env.VERCEL ? path.join("/tmp", "pre-sales-agent-workspace") : path.join(root, "workspace");
+}
+
+export function resolveMcpServerPath(
+  name: McpServerName,
+  runtimeDir = __dirname,
+  root = ROOT,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return env.VERCEL
+    ? path.join(runtimeDir, "mcp-servers", `${name}.mjs`)
+    : path.join(root, "dist", "mcp-servers", `${name}.mjs`);
+}
+
+export function buildWorkflowFailureSlackMessage(): string {
+  return "Estimation workflow failed after startup. Check the Vercel Workflow run logs, fix the reported setup issue, then retry the request.";
+}
+
+async function notifyWorkflowFailure(job: EstimationJob): Promise<void> {
+  if (!job.channelId || !job.threadTs || !process.env.SLACK_BOT_TOKEN) return;
+
+  try {
+    const client = new WebClient(process.env.SLACK_BOT_TOKEN);
+    await client.chat.postMessage({
+      channel: job.channelId,
+      thread_ts: job.threadTs,
+      text: buildWorkflowFailureSlackMessage(),
+    });
+  } catch (err) {
+    logger.warn("Failed to notify Slack thread about workflow failure", {
+      jobId: job.jobId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 export async function safeReport(jobId: string, operation: string, report: () => Promise<void>): Promise<void> {
@@ -877,8 +917,9 @@ ${skipInstructions.length > 0 ? `\nOVERRIDES:\n${skipInstructions.join("\n")}\n`
 
   try {
     // Ensure the workspace directory exists — spawn() fails with ENOENT if cwd is missing
-    if (!fs.existsSync(WORKSPACE)) {
-      fs.mkdirSync(WORKSPACE, { recursive: true });
+    const workspace = resolveAgentWorkspace();
+    if (!fs.existsSync(workspace)) {
+      fs.mkdirSync(workspace, { recursive: true });
     }
 
     let currentStep = 0;
@@ -890,19 +931,19 @@ ${skipInstructions.length > 0 ? `\nOVERRIDES:\n${skipInstructions.join("\n")}\n`
       process.env.GDRIVE_ROOT_FOLDER_ID,
     ].filter(Boolean).join(",");
 
-    log.info("Querying agent", { rfpLength: job.rfpText?.length ?? 0, hasClarifications: !!clarificationAnswers, hasInputFolder: !!job.inputFolderId, workspace: WORKSPACE });
+    log.info("Querying agent", { rfpLength: job.rfpText?.length ?? 0, hasClarifications: !!clarificationAnswers, hasInputFolder: !!job.inputFolderId, workspace });
     for await (const message of query({
       prompt,
       options: {
         abortController: controller,
         systemPrompt,
-        cwd: WORKSPACE,
+        cwd: workspace,
         maxTurns: 80,
         persistSession: false,
         mcpServers: {
           "knowledge-base": {
             command: "node",
-            args: [path.join(ROOT, "dist/mcp-servers/knowledge-base.js")],
+            args: [resolveMcpServerPath("knowledge-base")],
             env: {
               PINECONE_API_KEY: process.env.PINECONE_API_KEY!,
               PINECONE_INDEX: process.env.PINECONE_INDEX ?? "estimations",
@@ -911,7 +952,7 @@ ${skipInstructions.length > 0 ? `\nOVERRIDES:\n${skipInstructions.join("\n")}\n`
           },
           "google-workspace": {
             command: "node",
-            args: [path.join(ROOT, "dist/mcp-servers/google-workspace.js")],
+            args: [resolveMcpServerPath("google-workspace")],
             env: {
               GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID!,
               GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET!,
@@ -922,7 +963,7 @@ ${skipInstructions.length > 0 ? `\nOVERRIDES:\n${skipInstructions.join("\n")}\n`
           },
           "web-research": {
             command: "node",
-            args: [path.join(ROOT, "dist/mcp-servers/web-research.js")],
+            args: [resolveMcpServerPath("web-research")],
             env: {
               ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY!,
               BRAVE_SEARCH_API_KEY: process.env.BRAVE_SEARCH_API_KEY ?? "",
@@ -930,7 +971,7 @@ ${skipInstructions.length > 0 ? `\nOVERRIDES:\n${skipInstructions.join("\n")}\n`
           },
           "slack-interaction": {
             command: "node",
-            args: [path.join(ROOT, "dist/mcp-servers/slack-interaction.js")],
+            args: [resolveMcpServerPath("slack-interaction")],
             env: {
               SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN!,
               ALLOWED_CHANNEL: channelId,
@@ -1064,6 +1105,7 @@ ${skipInstructions.length > 0 ? `\nOVERRIDES:\n${skipInstructions.join("\n")}\n`
     }
     await safeReport(jobId, "progress", () => reporter.progress({ status: "failed" }));
     await safeReport(jobId, "system", () => reporter.system("Job failed", { error: err instanceof Error ? err.message : String(err) }));
+    await notifyWorkflowFailure(job);
     timer.fail(err);
     throw err;
   }

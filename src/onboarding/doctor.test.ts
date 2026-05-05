@@ -2,13 +2,20 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   REQUIRED_FIRST_LAUNCH_ENV,
+  REQUIRED_SEED_ENV,
   buildHealthUrl,
+  buildSlackEventsUrl,
+  buildSlackUrlVerificationRequest,
   classifyEnv,
+  classifySeedEnv,
+  summarizeSeedSourceFiles,
   hasBlockingFailures,
+  isDriveFolderPayload,
   isHealthyPayload,
   summarizeResults,
   type DoctorResult,
 } from "./doctor.js";
+import { buildGoogleOAuthUrl, validateGoogleOAuthClientEnv } from "./google-oauth.js";
 
 describe("first-launch doctor core", () => {
   it("classifies required env vars without revealing values", () => {
@@ -43,6 +50,31 @@ describe("first-launch doctor core", () => {
     assert.equal(buildHealthUrl("https://agent.example.com/api/health"), "https://agent.example.com/api/health");
   });
 
+  it("normalizes deploy URLs to the Slack Events endpoint", () => {
+    assert.equal(buildSlackEventsUrl("https://agent.example.com"), "https://agent.example.com/api/slack/events");
+    assert.equal(buildSlackEventsUrl("https://agent.example.com/"), "https://agent.example.com/api/slack/events");
+    assert.equal(buildSlackEventsUrl("agent.example.com"), "https://agent.example.com/api/slack/events");
+    assert.equal(buildSlackEventsUrl("https://agent.example.com/api/health"), "https://agent.example.com/api/slack/events");
+    assert.equal(buildSlackEventsUrl("https://agent.example.com/api/slack/events"), "https://agent.example.com/api/slack/events");
+  });
+
+  it("builds a signed Slack URL verification request", () => {
+    const request = buildSlackUrlVerificationRequest({
+      signingSecret: "secret",
+      timestamp: "1531420618",
+      challenge: "doctor-challenge",
+    });
+
+    assert.equal(request.body, JSON.stringify({
+      type: "url_verification",
+      token: "doctor",
+      challenge: "doctor-challenge",
+    }));
+    assert.equal(request.headers["content-type"], "application/json");
+    assert.equal(request.headers["x-slack-request-timestamp"], "1531420618");
+    assert.match(request.headers["x-slack-signature"], /^v0=[a-f0-9]{64}$/);
+  });
+
   it("validates the expected Vercel health payload", () => {
     assert.equal(isHealthyPayload({ status: "ok", runtime: "vercel", workflow: "enabled" }), true);
     assert.equal(isHealthyPayload({ status: "ok", runtime: "vercel" }), false);
@@ -60,5 +92,71 @@ describe("first-launch doctor core", () => {
     assert.deepEqual(summarizeResults(results), { pass: 1, warn: 1, fail: 1 });
     assert.equal(hasBlockingFailures(results), true);
     assert.equal(hasBlockingFailures(results.filter((result) => result.status !== "FAIL")), false);
+  });
+});
+
+describe("seed doctor core", () => {
+  it("classifies seed env vars without revealing values", () => {
+    const env = {
+      GOOGLE_CLIENT_ID: "client",
+      GOOGLE_CLIENT_SECRET: "secret",
+      GOOGLE_REFRESH_TOKEN: "refresh",
+      GDRIVE_ESTIMATIONS_FOLDER_ID: "estimations-folder",
+      GDRIVE_PROPOSALS_FOLDER_ID: "proposals-folder",
+      PINECONE_API_KEY: "pinecone",
+      VOYAGE_API_KEY: "voyage",
+    };
+
+    const results = classifySeedEnv({ ...env, VOYAGE_API_KEY: " " });
+    const failed = results.filter((result) => result.status === "FAIL");
+
+    assert.equal(results.length, REQUIRED_SEED_ENV.length);
+    assert.deepEqual(failed.map((result) => result.label), ["VOYAGE_API_KEY"]);
+    assert.doesNotMatch(JSON.stringify(results), /client|secret|refresh|pinecone|voyage/);
+  });
+
+  it("recognizes Google Drive folder metadata payloads", () => {
+    assert.equal(isDriveFolderPayload({ mimeType: "application/vnd.google-apps.folder" }), true);
+    assert.equal(isDriveFolderPayload({ mimeType: "application/vnd.google-apps.document" }), false);
+    assert.equal(isDriveFolderPayload(null), false);
+  });
+
+  it("summarizes seedable source files by expected native Drive type", () => {
+    const files = [
+      { mimeType: "application/vnd.google-apps.spreadsheet" },
+      { mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+      { mimeType: "application/vnd.google-apps.document" },
+    ];
+
+    assert.deepEqual(summarizeSeedSourceFiles(files, "spreadsheet"), {
+      total: 3,
+      seedable: 1,
+      unsupported: 2,
+    });
+    assert.deepEqual(summarizeSeedSourceFiles(files, "document"), {
+      total: 3,
+      seedable: 1,
+      unsupported: 2,
+    });
+  });
+});
+
+describe("Google OAuth onboarding helpers", () => {
+  it("requires OAuth client env before building an auth URL", () => {
+    assert.deepEqual(validateGoogleOAuthClientEnv({}), ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]);
+    assert.deepEqual(validateGoogleOAuthClientEnv({
+      GOOGLE_CLIENT_ID: "client",
+      GOOGLE_CLIENT_SECRET: "secret",
+    }), []);
+  });
+
+  it("builds an OAuth consent URL with the configured client ID", () => {
+    const url = new URL(buildGoogleOAuthUrl("client-id"));
+
+    assert.equal(url.origin, "https://accounts.google.com");
+    assert.equal(url.searchParams.get("client_id"), "client-id");
+    assert.equal(url.searchParams.get("redirect_uri"), "http://localhost:3333/callback");
+    assert.equal(url.searchParams.get("access_type"), "offline");
+    assert.equal(url.searchParams.get("prompt"), "consent");
   });
 });

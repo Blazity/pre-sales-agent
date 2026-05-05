@@ -17,11 +17,13 @@ If you are using an AI coding assistant in this repository, use the registered `
 1. Click the Deploy with Vercel button in `README.md`.
 2. Create the Vercel project from your fork or cloned repository.
 3. Let the shell deploy first.
-4. Open:
+4. Open the stable production/project domain, not a one-off deployment preview URL:
 
 ```text
 https://<your-vercel-domain>/api/health
 ```
+
+Use the domain that will keep pointing at the latest production deployment, such as `https://<project>.vercel.app` or your custom production domain. Do not paste an immutable deployment URL from a single Vercel deployment page into Slack, because later redeploys with environment variables will not update that old URL.
 
 Expected response:
 
@@ -100,7 +102,7 @@ GSHEETS_TEMPLATE_ID=<created-sheet-id>
 
 ## 5. Add Vercel Environment Variables
 
-In Vercel Project Settings -> Environment Variables, set:
+In Vercel Project Settings -> Environment Variables, set these values for the Production environment. If you are intentionally testing a Preview deployment, set the same values for Preview too and use that preview URL consistently.
 
 ```text
 ANTHROPIC_API_KEY
@@ -126,7 +128,7 @@ From the local checkout:
 npm run doctor:first-launch -- --health-url https://<your-vercel-domain>
 ```
 
-The doctor checks local env presence, Vercel health, Google OAuth/template access, Slack auth, and Pinecone access. It does not print secret values.
+The doctor checks local env presence, Vercel health, the deployed Slack ingress URL, Google OAuth/template access, Slack auth, and Pinecone access. It sends a signed Slack URL verification probe to `https://<your-vercel-domain>/api/slack/events`, so use the same canonical domain here that you plan to paste into Slack. It does not print secret values.
 
 When diagnosing a stuck Workflow deployment, run:
 
@@ -136,6 +138,7 @@ npm run check:vercel-output
 ```
 
 The check must confirm both API functions and Workflow runtime functions are present in `.vercel/output`.
+It also verifies the bundled MCP server entrypoints that the workflow spawns during the agent run. If those bundles are missing, Slack can acknowledge the request but the workflow will fail after startup.
 
 ## 7. Configure Slack
 
@@ -143,7 +146,7 @@ In your Slack app:
 
 1. Add bot scopes: `app_mentions:read`, `channels:history`, `chat:write`, `commands`, `files:read`.
 2. Add `groups:history` only if private channels should work.
-3. Set Events API request URL:
+3. Set Events API request URL to the exact Slack ingress URL tested by `doctor:first-launch`:
 
 ```text
 https://<your-vercel-domain>/api/slack/events
@@ -165,6 +168,14 @@ Optional knowledge-base source variables:
 - `GDRIVE_ESTIMATIONS_FOLDER_ID`
 - `GDRIVE_PROPOSALS_FOLDER_ID`
 - `CASE_STUDIES_BASE_URL`
+
+These are optional only for first launch. If you run `npm run seed`, both Drive folder IDs must be set and readable by the Google OAuth account. The seed script reads curated Drive folders, not local folders.
+
+Validate the seeding setup first:
+
+```bash
+npm run doctor:seed
+```
 
 First launch can succeed with an empty Pinecone index, but retrieval quality improves only after seeding native Google Sheets estimations, Google Docs proposals, or public case studies.
 
@@ -200,11 +211,12 @@ First launch is complete when:
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `/api/health` is not reachable | Vercel deployment failed or wrong URL | Check Vercel deployment logs and domain |
-| Slack URL verification fails | Wrong request URL or signing secret missing | Use `/api/slack/events`, set env, redeploy |
+| Slack URL verification fails | Wrong request URL, stale preview/deployment URL, missing signing secret, or env not redeployed | Use the stable production domain plus `/api/slack/events`, set Production env, redeploy, then rerun `doctor:first-launch` |
 | Slack command works but messages do not | Event subscription or bot channel invite missing | Subscribe to `message.channels` and invite the bot |
 | Google token refresh fails | OAuth client or refresh token mismatch | Re-run `scripts/get-google-token.ts` |
 | Google template copy fails | Template not shared with OAuth account | Share templates or regenerate them with the OAuth account |
 | Drive output fails with 403 | Root folder not writable | Share the folder or use a folder owned by the OAuth account |
 | Pinecone returns dimension errors | Index was created with the wrong embedding model | Recreate and seed the index with `voyage-3` settings |
-| Slack posts "workflow started" but no thread updates happen | Workflow runtime functions are missing from deployment | Run `npm run build` and `npm run check:vercel-output`; redeploy only after both API and Workflow functions are emitted |
+| Slack posts "workflow started" but no thread updates happen | Workflow runtime functions or bundled MCP server entrypoints are missing from deployment | Run `npm run build` and `npm run check:vercel-output`; redeploy only after API, Workflow, and MCP bundle checks pass |
+| Slack thread reports workflow failure after startup | Provider env, template access, Pinecone/Voyage access, or MCP startup failed inside the workflow | Check the Vercel Workflow run logs, run `doctor:first-launch`, fix the reported setup issue, redeploy, and retry |
 | Workflow does not start | Vercel env or Workflow deployment issue | Check Vercel logs and rerun `npm run build` locally |

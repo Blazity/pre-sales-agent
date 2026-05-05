@@ -1,33 +1,28 @@
 import "dotenv/config";
 import http from "http";
 import url from "url";
+import {
+  buildGoogleOAuthUrl,
+  GOOGLE_OAUTH_REDIRECT_URI,
+  validateGoogleOAuthClientEnv,
+} from "../src/onboarding/google-oauth.js";
 
 // Run: npx tsx scripts/get-google-token.ts
 
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
-const REDIRECT_URI = "http://localhost:3333/callback";
-const SCOPES = [
-  "https://www.googleapis.com/auth/documents",
-  "https://www.googleapis.com/auth/drive",
-  "https://www.googleapis.com/auth/spreadsheets",
-  "https://www.googleapis.com/auth/presentations",
-].join(" ");
+const missing = validateGoogleOAuthClientEnv(process.env);
+if (missing.length > 0) {
+  console.error(`Missing required env var(s): ${missing.join(", ")}`);
+  console.error("Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env, then rerun this command.");
+  process.exit(1);
+}
 
-const authUrl =
-  `https://accounts.google.com/o/oauth2/v2/auth?` +
-  new URLSearchParams({
-    client_id: CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
-    response_type: "code",
-    scope: SCOPES,
-    access_type: "offline",
-    prompt: "consent",
-  });
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID!.trim();
+const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!.trim();
+const authUrl = buildGoogleOAuthUrl(CLIENT_ID);
 
 console.log("\n🔗 Open this URL in your browser to authorize:\n");
 console.log(authUrl);
-console.log("\nWaiting for callback on http://localhost:3333/callback ...\n");
+console.log(`\nWaiting for callback on ${GOOGLE_OAUTH_REDIRECT_URI} ...\n`);
 
 const server = http.createServer(async (req, res) => {
   const parsed = url.parse(req.url!, true);
@@ -41,7 +36,7 @@ const server = http.createServer(async (req, res) => {
       code,
       client_id: CLIENT_ID,
       client_secret: CLIENT_SECRET,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: GOOGLE_OAUTH_REDIRECT_URI,
       grant_type: "authorization_code",
     }),
   });

@@ -20,6 +20,7 @@ function loadEnv(env: Record<string, string | undefined>) {
     GOOGLE_CLIENT_SECRET: requireEnv(env, "GOOGLE_CLIENT_SECRET"),
     GOOGLE_REFRESH_TOKEN: requireEnv(env, "GOOGLE_REFRESH_TOKEN"),
     GDRIVE_TEMPLATE_ID:   requireEnv(env, "GDRIVE_TEMPLATE_ID"),
+    GSHEETS_TEMPLATE_ID:  requireEnv(env, "GSHEETS_TEMPLATE_ID"),
     PINECONE_API_KEY:     requireEnv(env, "PINECONE_API_KEY"),
     PINECONE_INDEX:       env["PINECONE_INDEX"] ?? "estimations",
     VOYAGE_API_KEY:       requireEnv(env, "VOYAGE_API_KEY"),
@@ -36,6 +37,7 @@ const FULL_ENV: Record<string, string> = {
   GOOGLE_CLIENT_SECRET: "client-secret",
   GOOGLE_REFRESH_TOKEN: "refresh-token",
   GDRIVE_TEMPLATE_ID:   "template-doc-id",
+  GSHEETS_TEMPLATE_ID:  "template-sheet-id",
   PINECONE_API_KEY:     "pinecone-key",
   VOYAGE_API_KEY:       "voyage-key",
 };
@@ -74,6 +76,7 @@ describe("env loader", () => {
     "GOOGLE_CLIENT_SECRET",
     "GOOGLE_REFRESH_TOKEN",
     "GDRIVE_TEMPLATE_ID",
+    "GSHEETS_TEMPLATE_ID",
     "PINECONE_API_KEY",
     "VOYAGE_API_KEY",
   ] as const;

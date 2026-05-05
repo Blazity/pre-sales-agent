@@ -86,6 +86,26 @@ Format: Context → Problem → Rule → Recovery → Applies to.
 
 ---
 
+### Slack must use the stable Vercel production domain
+
+**Context:** Vercel shows deployment-specific preview URLs as well as stable project/production domains.
+**Problem:** If Slack is configured with an immutable deployment URL from the first shell deploy, later redeploys with environment variables do not update the URL Slack calls. `/api/health` and local provider checks can pass on the current deployment while Slack still hits the stale deployment.
+**Rule:** Configure Slack Events and slash commands with the stable production/project domain plus `/api/slack/events`. Run `npm run doctor:first-launch -- --health-url <stable-domain>` after redeploy; it sends a signed Slack URL verification probe to the deployed ingress.
+**Recovery:** If Slack never reaches the current deployment, compare the URL in Slack app settings with the URL printed by `doctor:first-launch`, update both Events API and slash command URLs, reinstall the Slack app, and redeploy after env changes.
+**Applies to:** `docs/first-launch.md`, `.ai/skills/first-launch/SKILL.md`, `scripts/doctor-first-launch.ts`.
+
+---
+
+### Workflow deployment must include MCP server bundles
+
+**Context:** Slack ingress can acknowledge a request before the long-running Vercel Workflow starts the Claude Agent SDK orchestration.
+**Problem:** A deployment can pass `/api/health` and Slack ingress checks while the workflow later fails because standalone MCP stdio server entrypoints are missing from the Workflow runtime output.
+**Rule:** Treat `npm run check:vercel-output` as a runtime contract check for API routes, Workflow routes, and bundled MCP server entrypoints.
+**Recovery:** Run `npm run build`, then `npm run check:vercel-output`. If MCP bundles are missing, fix the build output before redeploying.
+**Applies to:** `scripts/build-vercel-output.ts`, `scripts/check-vercel-output.ts`, `src/agents/orchestrator.ts`.
+
+---
+
 ### Estimation calibration: rate card, AI factor, page budget
 
 **Context:** First real estimation (Assessio) priced 3× too high, produced 19-page document, recommended outdated tech.

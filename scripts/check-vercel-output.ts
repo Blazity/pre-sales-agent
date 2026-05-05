@@ -1,6 +1,9 @@
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
-import type { VercelOutputConfig } from "../src/vercel-output/config.js";
+import {
+  requiredMcpServerOutputFiles,
+  type VercelOutputConfig,
+} from "../src/vercel-output/config.js";
 
 const root = process.cwd();
 
@@ -13,6 +16,7 @@ const requiredFiles = [
   ".vercel/output/functions/api/slack/events.func/.vc-config.json",
   "public/index.html",
   ".vercel/output/static/index.html",
+  ...requiredMcpServerOutputFiles(),
 ];
 
 const requiredRoutes = [
@@ -55,7 +59,7 @@ async function main(): Promise<void> {
     ].filter(Boolean).join("\n\n"));
   }
 
-  console.log("Vercel output contains required API, Workflow, and static assets.");
+  console.log("Vercel output contains required API, Workflow, MCP server bundles, and static assets.");
 }
 
 main().catch((err) => {

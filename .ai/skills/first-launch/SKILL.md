@@ -26,7 +26,7 @@ Start by identifying the user's state:
 If Path A:
 
 1. Have them deploy the shell with the README Deploy Button.
-2. Ask for or infer the Vercel domain only after deploy.
+2. Ask for or infer the stable Vercel production/project domain only after deploy. Do not use an immutable deployment-specific preview URL for Slack.
 3. Verify `/api/health`.
 4. Continue with Path B.
 
@@ -47,10 +47,11 @@ Expected:
 ## Checklist
 
 - [ ] Vercel shell deployed
+- [ ] Stable production/project domain selected for Slack
 - [ ] `/api/health` returns expected payload
 - [ ] Local checkout installed with `npm install`
 - [ ] Project skills discoverable through `.claude/skills`, `.agents/skills`, or `.cursor/skills`
-- [ ] `npm run build` emits API and Workflow runtime functions
+- [ ] `npm run build` emits API, Workflow, and MCP server bundle output
 - [ ] `npm run check:vercel-output` passes
 - [ ] Google OAuth client created
 - [ ] `GOOGLE_REFRESH_TOKEN` generated
@@ -60,7 +61,7 @@ Expected:
 - [ ] Vercel redeployed after env changes
 - [ ] Slack bot scopes configured exactly
 - [ ] Slack Events subscriptions match supported triggers
-- [ ] Slack Events URL configured
+- [ ] Slack Events URL configured with the tested stable domain
 - [ ] `/estimate` command configured
 - [ ] Slack app reinstalled
 - [ ] Bot invited to channel
@@ -103,9 +104,10 @@ npm run doctor:first-launch -- --offline
 | Symptom | Likely Cause | Next Step |
 |---|---|---|
 | `/api/health` is unreachable | Vercel deployment failed or wrong domain | Check Vercel deployment logs and verify the domain |
-| Slack URL verification fails | Wrong request URL, missing signing secret, or env not redeployed | Use `/api/slack/events`, set env, redeploy |
+| Slack URL verification fails | Wrong request URL, stale preview/deployment URL, missing signing secret, or env not redeployed | Use the stable production domain plus `/api/slack/events`, set Production env, redeploy, rerun doctor |
 | Slash command works but channel messages do not | Missing event subscription or bot not in channel | Subscribe to `message.channels` and invite the bot |
-| Slack posts "workflow started" but no thread updates happen | Workflow runtime functions are missing from deployment | Run `npm run build` and `npm run check:vercel-output`; redeploy only after both API and Workflow functions are emitted |
+| Slack posts "workflow started" but no thread updates happen | Workflow runtime functions or bundled MCP server entrypoints are missing from deployment | Run `npm run build` and `npm run check:vercel-output`; redeploy only after API, Workflow, and MCP bundle checks pass |
+| Slack thread reports workflow failure after startup | Provider env, template access, Pinecone/Voyage access, or MCP startup failed inside the workflow | Check Vercel Workflow logs, run `doctor:first-launch`, fix the reported setup issue, redeploy, and retry |
 | Google OAuth fails | Refresh token generated with the wrong OAuth client | Regenerate `GOOGLE_REFRESH_TOKEN` with the same client |
 | Google Drive returns 403 | Root folder or templates are not accessible to the OAuth account | Share folders/templates or regenerate templates |
 | Pinecone dimension mismatch | Index was created with a model other than Voyage `voyage-3` | Recreate and seed the index with 1024 dimensions and cosine metric |
