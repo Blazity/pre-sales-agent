@@ -3,7 +3,6 @@ import http from "http";
 import url from "url";
 
 // Run: npx tsx scripts/get-google-token.ts
-// Requires: npm install open  (or open the URL manually from terminal output)
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;

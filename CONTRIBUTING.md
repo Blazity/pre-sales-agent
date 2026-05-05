@@ -8,9 +8,12 @@ Before opening a pull request:
 npm install
 npm run typecheck
 npm test
+npm run build
+npm run check:vercel-output
 npm run audit:high
 npm run scan:secrets
 npm run check:mcp-isolation
+npm run check:ai-docs
 ```
 
 MCP servers in `src/mcp-servers/` must remain standalone stdio processes. Do not import from `src/` application internals.

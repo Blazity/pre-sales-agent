@@ -73,6 +73,6 @@ npm test
 
 MIT
 
-## Community
+## Contributing
 
-See `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, and `CODE_OF_CONDUCT.md` before opening issues or pull requests.
+See `CONTRIBUTING.md` before opening pull requests and `SECURITY.md` for vulnerability reporting.
