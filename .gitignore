@@ -13,3 +13,5 @@ workspace/
 .workflow-data/
 past-estimates/
 coverage/
+.vercel
+.env*.local
