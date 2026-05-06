@@ -17,7 +17,7 @@
     "node": ">=20.18.1"
   },
   "scripts": {
-    "build": "workflow validate --strict && npm run typecheck && tsx scripts/build-vercel-output.ts",
+    "build": "workflow validate --strict && npm run typecheck && tsx scripts/snapshot-sandbox.ts && tsx scripts/build-vercel-output.ts",
     "typecheck": "tsc --noEmit",
     "dev:vercel": "npx vercel dev",
     "seed": "tsx scripts/seed-knowledge-base.ts",
@@ -52,12 +52,14 @@
     "dotenv": "latest",
     "express": "latest",
     "mammoth": "^1.12.0",
+    "ms": "^2.1.3",
     "undici": "7.25.0",
     "workflow": "^4.2.4",
     "zod": "latest"
   },
   "devDependencies": {
     "@types/express": "latest",
+    "@types/ms": "latest",
     "@types/node": "latest",
     "esbuild": "latest",
     "tsx": "latest",

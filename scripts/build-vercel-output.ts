@@ -29,6 +29,17 @@ const apiFunctions = [
   },
 ] as const;
 
+const workflowRuntimeRoutes = [
+  {
+    src: "^\\/\\.well-known\\/workflow\\/v1\\/flow$",
+    dest: "/.well-known/workflow/v1/flow",
+  },
+  {
+    src: "^\\/\\.well-known\\/workflow\\/v1\\/step$",
+    dest: "/.well-known/workflow/v1/step",
+  },
+] as const;
+
 async function run(command: string, args: string[]): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, { cwd: root, stdio: "inherit" });
@@ -84,6 +95,9 @@ async function bundleMcpServer(name: typeof MCP_SERVER_NAMES[number]): Promise<v
       format: "esm",
       sourcemap: true,
       logLevel: "info",
+      banner: {
+        js: "import { createRequire as __nodeCreateRequire } from 'module'; const require = __nodeCreateRequire(import.meta.url);",
+      },
     });
   }
 }
@@ -91,7 +105,10 @@ async function bundleMcpServer(name: typeof MCP_SERVER_NAMES[number]): Promise<v
 async function updateConfig(): Promise<void> {
   const raw = await readFile(configPath, "utf8");
   const config = JSON.parse(raw) as VercelOutputConfig;
-  const updated = mergeRoutes(config, apiFunctions.map((apiFunction) => apiFunction.route));
+  const updated = mergeRoutes(config, [
+    ...workflowRuntimeRoutes,
+    ...apiFunctions.map((apiFunction) => apiFunction.route),
+  ]);
   await writeFile(configPath, `${JSON.stringify(updated, null, 2)}\n`);
 }
 

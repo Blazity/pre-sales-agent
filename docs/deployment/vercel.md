@@ -62,6 +62,8 @@ Add optional, seeding, or branding variables later in the Vercel project setting
 
 First launch can succeed with an empty Pinecone index, but retrieval quality improves only after seeding native Google Sheets estimations, Google Docs proposals, or public case studies. Before running `npm run seed`, set both `GDRIVE_ESTIMATIONS_FOLDER_ID` and `GDRIVE_PROPOSALS_FOLDER_ID` locally and run `npm run doctor:seed`.
 
+For fast Vercel Sandbox startup, the deployed Vercel build uses platform-provided Sandbox authentication to create a template snapshot. If the source repo is private, set `AGENT_REPO_TOKEN` or `GITHUB_TOKEN` in Build env for snapshot creation and in Runtime env for git-clone fallback.
+
 ## Post-Deploy Setup
 
 After Vercel creates the project:

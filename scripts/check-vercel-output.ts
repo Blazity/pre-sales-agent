@@ -20,6 +20,8 @@ const requiredFiles = [
 ];
 
 const requiredRoutes = [
+  "/.well-known/workflow/v1/flow",
+  "/.well-known/workflow/v1/step",
   "/.well-known/workflow/v1/webhook/[token]",
   "/api/health",
   "/api/slack/events",

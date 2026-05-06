@@ -232,6 +232,33 @@ Vercel defaults:
 
 The Deploy Button does not ask for these defaults.
 
+### Sandbox template snapshot
+
+Each estimation runs in its own Vercel Sandbox. By default the sandbox is built per-job by cloning your repo and running `npm ci` + `npm run build` inside it, which adds ~60–120s to every run and only works if the runtime can reach your Git source. To skip both costs, set up the build-time snapshot:
+
+On deployed Vercel builds, Sandbox authentication is provided by the platform. No Vercel access token or project/team id environment variables are needed.
+
+After redeploying, `npm run build` will create a sandbox, install + build inside it, snapshot the result, and bundle the snapshot id into the runtime function. Per-job sandboxes then start in ~5–10s with no network access required to your source repo. If the build script can't authenticate to Sandbox it logs a warning and the runtime falls back to git-clone.
+
+When Vercel Git metadata is available, the sandbox clones the exact deployment commit SHA. `AGENT_REPO_REVISION` is only for an intentional branch or SHA override.
+
+### Private repos
+
+If your repo is private, the sandbox needs Git credentials whenever it must clone the repo. That includes build-time snapshot creation and the runtime git-clone fallback if no snapshot exists:
+
+| Variable | Notes |
+|---|---|
+| `AGENT_REPO_TOKEN` | Preferred name for a private GitHub repo token. Fine-grained tokens need `Contents: Read` and `Metadata: Read`; classic tokens need `repo` scope. |
+| `GITHUB_TOKEN` | Alternative name; either works because the runtime checks `AGENT_REPO_TOKEN` first and then `GITHUB_TOKEN`. |
+
+The sandbox passes the token as the Git password with username `x-access-token`, matching Vercel's private GitHub repository guidance. For multi-tenant or user-owned repositories, prefer a GitHub App installation token generated fresh for each sandbox creation.
+
+Set the token in the **Build** environment when snapshot creation must clone a private repo. Also set it in the **Runtime** environment if the project may fall back to per-job git clone.
+
+Public-repo deployments don't need these.
+
+Symptom of missing this when needed: workflow run fails with `Sandbox.create failed (400 Bad Request): {"error":...,"message":"git clone failed"}`. The recommended fix is the build-time snapshot above; the token is the workaround.
+
 ## 8. Test the Workflow
 
 Before changing Slack, verify the exact ingress URL with:

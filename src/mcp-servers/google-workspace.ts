@@ -2,7 +2,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { config } from "dotenv";
-config();
+// quiet: true — dotenv 17+ writes a startup tip to stdout, which corrupts
+// the MCP JSON-RPC handshake on this server's stdio transport.
+config({ quiet: true });
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;

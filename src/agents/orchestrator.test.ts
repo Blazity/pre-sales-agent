@@ -67,6 +67,13 @@ describe("orchestrator tool allowlist", () => {
     const source = fs.readFileSync(path.join(path.dirname(currentFile), "orchestrator.ts"), "utf-8");
     assert.ok(!source.includes("\"mcp__google-workspace__drive_search_files\""));
   });
+
+  it("runs Claude Code unattended with only MCP tools available", () => {
+    const currentFile = fileURLToPath(import.meta.url);
+    const source = fs.readFileSync(path.join(path.dirname(currentFile), "orchestrator.ts"), "utf-8");
+    assert.match(source, /tools:\s*\[\]/);
+    assert.match(source, /permissionMode:\s*"dontAsk"/);
+  });
 });
 
 describe("orchestrator runtime paths", () => {

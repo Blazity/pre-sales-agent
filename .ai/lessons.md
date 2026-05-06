@@ -223,6 +223,28 @@ Format: Context → Problem → Rule → Recovery → Applies to.
 
 ---
 
+### One sandbox per estimation; reattach across step retries
+
+**Context:** The estimation workflow runs as `bootJobStep` → `streamOrchestratorStep` → `cleanupSandboxStep`. The Vercel Function step has an 800s ceiling; a long agent run will be killed and Workflow will retry the step.
+**Problem:** The previous monolithic step recreated a fresh sandbox on every retry — running `npm ci` and `npm run build` again, re-driving Slack messages, doubling Anthropic spend.
+**Rule:** `bootJobStep` is `maxRetries: 0` — it MUST run once and persist `{ sandbox, command }` (which `@vercel/sandbox` natively serializes via `@workflow/serde`). `streamOrchestratorStep` is the long-running step; on retry it rehydrates the same sandbox + command and resumes reading `/vercel/sandbox/.agent/events.jsonl` from the byte offset returned by the previous attempt. NEVER trust `cmd.logs()` across step retries — its semantics on reattach are undocumented; the JSONL file is the source of truth. `cleanupSandboxStep` always runs in a `finally` block so a sandbox never leaks on failure.
+**Recovery:** If you see duplicate sandboxes for one estimation, check whether `streamOrchestratorStep` is incorrectly calling `Sandbox.create` or whether `bootJobStep` lost its `maxRetries: 0` setting. If a long run loses events, verify the orchestrator inside the sandbox is appending to `events.jsonl` and the workflow step is reading from the persisted byte offset.
+**Applies to:** `workflows/estimation.ts`, `src/runtime/sandbox.ts`, `scripts/run-orchestrator-in-sandbox.ts`, `scripts/snapshot-sandbox.ts`.
+
+---
+
+### MCP servers must spawn cleanly: no stdout writes, no dynamic-require crashes
+
+**Context:** MCP servers use stdio JSON-RPC. The Claude Agent SDK marks a server `failed` if its handshake doesn't complete — silently, with `permissionDenials: 0` and `errorCount: 0`. The agent then runs with `toolCount: 3` (built-ins only) and exits early with `stop_reason: end_turn`.
+**Problem:** Two ways the bundled servers can fail invisibly:
+1. esbuild's ESM bundle of CJS deps (e.g. `@slack/web-api` → `instrument.js`) emits a `__require()` polyfill that throws on `require("node:os")` and similar built-ins, crashing the server before handshake.
+2. dotenv 17+ writes a startup tip to **stdout** by default (`◇ injected env (N) from .env // tip: …`), corrupting the JSON-RPC stream.
+**Rule:** `bundleMcpServer` in `scripts/build-vercel-output.ts` must inject `createRequire` via `banner.js`. Every MCP server must call `config({ quiet: true })`. Anything else that might write to stdout at module init is forbidden.
+**Recovery:** Check the SDK `init` event in workflow logs for `mcp_servers: [{ status: "failed" }]`. Run each bundled server locally with `sleep 5 | node dist/mcp-servers/<name>.mjs > out 2> err` — `out` MUST be empty and the process must stay alive.
+**Applies to:** `scripts/build-vercel-output.ts`, all files in `src/mcp-servers/`.
+
+---
+
 ### All ingestion paths must produce symmetric Drive structures
 
 **Context:** SPEC-035 changed the orchestrator to prioritize `inputFolderId` over `rfpText`. The Drive folder path (`ingestDriveFolder`) already created text-version Google Docs via `uploadAndConvertToDriveDoc` and built a `FileManifest`. The Slack upload path did not.

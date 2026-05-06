@@ -6,13 +6,31 @@ import { Agent, fetch as undiciFetch, type RequestInfo as UndiciRequestInfo, typ
 import { z } from "zod";
 import { config } from "dotenv";
 import Anthropic from "@anthropic-ai/sdk";
-config();
+// quiet: true — dotenv 17+ writes a startup tip to stdout, which corrupts
+// the MCP JSON-RPC handshake on this server's stdio transport.
+config({ quiet: true });
 
 const MAX_TEXT_LENGTH = 10000;
 const FETCH_TIMEOUT_MS = 10_000;
+const BRAVE_SEARCH_TIMEOUT_MS = 15_000;
+const ANTHROPIC_EXTRACT_TIMEOUT_MS = 60_000;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
 const TEXT_CONTENT_TYPES = ["text/html", "text/plain", "application/xhtml+xml"];
+
+async function withTimeout<T>(
+  fn: (signal: AbortSignal) => Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fn(controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 interface BraveResult {
   title: string;
@@ -318,8 +336,9 @@ server.tool(
           return {
             content: [{
               type: "text" as const,
-              text: `Fetch failed: ${res.status} ${res.statusText}`,
+              text: `Fetch failed: ${res.status} ${res.statusText} — try a different URL.`,
             }],
+            isError: true,
           };
         }
 
@@ -329,14 +348,22 @@ server.tool(
 
         if (extract_prompt) {
           const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-          const response = await client.messages.create({
-            model: "claude-haiku-4-5-20251001",
-            max_tokens: 2000,
-            messages: [{
-              role: "user",
-              content: `${extract_prompt}\n\nPage content:\n${pageText.slice(0, 30000)}`,
-            }],
-          });
+          const response = await withTimeout(
+            (signal) =>
+              client.messages.create(
+                {
+                  model: "claude-haiku-4-5-20251001",
+                  max_tokens: 2000,
+                  messages: [{
+                    role: "user",
+                    content: `${extract_prompt}\n\nPage content:\n${pageText.slice(0, 30000)}`,
+                  }],
+                },
+                { signal },
+              ),
+            ANTHROPIC_EXTRACT_TIMEOUT_MS,
+            "anthropic-extract",
+          );
 
           const text = response.content
             .filter((b): b is Anthropic.TextBlock => b.type === "text")
@@ -360,7 +387,17 @@ server.tool(
         await fetched.close();
       }
     } catch (err) {
-      return { content: [{ type: "text" as const, text: `Error: ${String(err)}` }] };
+      const message = err instanceof Error ? err.message : String(err);
+      const isAbort = err instanceof Error && (err.name === "AbortError" || message.includes("aborted"));
+      return {
+        content: [{
+          type: "text" as const,
+          text: isAbort
+            ? `Error: fetch timed out after ${FETCH_TIMEOUT_MS / 1000}s — try a different URL or simpler extract_prompt.`
+            : `Error: ${message}`,
+        }],
+        isError: true,
+      };
     }
   },
 );
@@ -376,17 +413,29 @@ server.tool(
     try {
       const apiKey = process.env.BRAVE_SEARCH_API_KEY;
       if (!apiKey) {
-        return { content: [{ type: "text" as const, text: "Error: BRAVE_SEARCH_API_KEY not configured" }] };
+        return {
+          content: [{ type: "text" as const, text: "Error: BRAVE_SEARCH_API_KEY not configured" }],
+          isError: true,
+        };
       }
 
       const params = new URLSearchParams({ q: query, count: String(count) });
-      const res = await fetch(`https://api.search.brave.com/res/v1/web/search?${params}`, {
-        headers: { "X-Subscription-Token": apiKey, Accept: "application/json" },
-      });
+      const res = await withTimeout(
+        (signal) =>
+          fetch(`https://api.search.brave.com/res/v1/web/search?${params}`, {
+            headers: { "X-Subscription-Token": apiKey, Accept: "application/json" },
+            signal,
+          }),
+        BRAVE_SEARCH_TIMEOUT_MS,
+        "brave-search",
+      );
 
       if (!res.ok) {
         const text = await res.text();
-        return { content: [{ type: "text" as const, text: `Brave Search error: ${res.status} ${text}` }] };
+        return {
+          content: [{ type: "text" as const, text: `Brave Search error: ${res.status} ${text}` }],
+          isError: true,
+        };
       }
 
       const data = await res.json();
@@ -402,7 +451,17 @@ server.tool(
 
       return { content: [{ type: "text" as const, text: formatted }] };
     } catch (err) {
-      return { content: [{ type: "text" as const, text: `Error: ${String(err)}` }] };
+      const message = err instanceof Error ? err.message : String(err);
+      const isAbort = err instanceof Error && (err.name === "AbortError" || message.includes("aborted"));
+      return {
+        content: [{
+          type: "text" as const,
+          text: isAbort
+            ? `Error: Brave Search timed out after ${BRAVE_SEARCH_TIMEOUT_MS / 1000}s — try a narrower query.`
+            : `Error: ${message}`,
+        }],
+        isError: true,
+      };
     }
   },
 );

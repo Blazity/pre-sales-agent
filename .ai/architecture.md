@@ -19,9 +19,10 @@ The orchestrator (`src/agents/orchestrator.ts`) drives a four-stage estimation w
 The public starter is Vercel-first:
 
 - Vercel Functions handle health checks and Slack Events API ingress from `api/`.
-- Vercel Workflow is the durable execution and observability layer.
-- Vercel Sandbox is the default agent workspace provider on Vercel.
-- Structured workflow events are written to Vercel logs and Workflow run timelines.
+- Vercel Workflow is the durable execution and observability layer. The estimation workflow runs as three `'use step'` functions: `bootJobStep` (creates one sandbox per job, `maxRetries=0`), `streamOrchestratorStep` (reattaches to the running orchestrator and replays events from a JSONL byte offset, retries OK), and `cleanupSandboxStep` (always runs in `finally`).
+- Vercel Sandbox is the default agent workspace provider on Vercel. Each estimation gets exactly one sandbox: created at job start (from a build-time snapshot when available, or git-clone fallback) and reused across every step retry via the `@workflow/serde` integration that ships with `@vercel/sandbox`.
+- A build-time template snapshot is created by `scripts/snapshot-sandbox.ts` on deployed Vercel builds, where Sandbox authentication is provided by the platform. When Vercel Git metadata is available, the snapshot source pins the exact deployment commit SHA. The snapshot id is written into `src/runtime/sandbox-snapshot-id.ts` and bundled into the runtime function so per-job sandboxes skip `npm ci` and `npm run build` (~5–10s ready vs ~60–120s).
+- Structured workflow events are written to Vercel logs and Workflow run timelines. The orchestrator inside the sandbox additionally writes `events.jsonl` and a `result.json` sentinel, so a workflow step retry after a Vercel Function timeout (800s ceiling) can resume streaming without losing events emitted while the function was offline.
 
 ## Pipeline Stages
 
@@ -71,7 +72,10 @@ Rules:
 | `workflows/estimation.ts` | Durable estimation workflow |
 | `src/agents/orchestrator.ts` | Claude Agent SDK orchestration prompt, MCP config, allowed tools, and tool-step tracking |
 | `src/mcp-servers/*.ts` | Standalone MCP tool servers |
-| `src/runtime/sandbox.ts` | Workspace provider selection |
+| `src/runtime/sandbox.ts` | Workspace provider selection, `bootSandboxForJob`, `streamOrchestratorEvents`, `stopSandbox` |
+| `src/runtime/sandbox-snapshot-id.ts` | Generated at build time — exports the snapshot id used by `bootSandboxForJob` |
+| `scripts/snapshot-sandbox.ts` | Build-time prewarm: creates the template snapshot and writes its id into the bundled runtime |
+| `scripts/run-orchestrator-in-sandbox.ts` | Orchestrator entry point inside the sandbox; writes `events.jsonl` + `result.json` for resumable streaming |
 | `scripts/seed-knowledge-base.ts` | Pinecone seeding from Google Drive |
 | `scripts/setup-google-templates.ts` | Starter Google Docs and Sheets template creation |
 | `scripts/get-google-token.ts` | One-time Google OAuth refresh-token flow |
