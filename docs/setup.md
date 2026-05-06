@@ -246,15 +246,17 @@ In your Vercel project settings → Environment Variables, scope these to the **
 
 After redeploying, `npm run build` will create a sandbox, install + build inside it, snapshot the result, and bundle the snapshot id into the runtime function. Per-job sandboxes then start in ~5–10s with no network access required to your source repo. If the build script can't find these vars it logs a warning and the runtime falls back to git-clone.
 
-### Private repos (only if you don't set up the snapshot)
+### Private repos
 
-If you skip the snapshot above and your repo is private, the runtime sandbox needs Git credentials to clone it:
+If your repo is private, the sandbox needs Git credentials whenever it must clone the repo. That includes build-time snapshot creation and the runtime git-clone fallback if no snapshot exists:
 
 | Variable | Notes |
 |---|---|
-| `AGENT_REPO_TOKEN` | A GitHub personal-access token (classic or fine-grained) with `repo` scope. Set in the **Runtime** environment. |
-| `GITHUB_TOKEN` | Alternative name; either works. |
+| `AGENT_REPO_TOKEN` | Preferred name for a GitHub personal-access token. Fine-grained tokens need read access to repository contents; classic tokens need repo access. |
+| `GITHUB_TOKEN` | Alternative name; either works because the runtime checks `AGENT_REPO_TOKEN` first and then `GITHUB_TOKEN`. |
 | `AGENT_REPO_USERNAME` | Optional — set this only if you're using a GitHub App installation token (then pass `x-access-token` here). |
+
+Set the token in the **Build** environment when snapshot creation must clone a private repo. Also set it in the **Runtime** environment if the project may fall back to per-job git clone.
 
 Public-repo deployments don't need these.
 

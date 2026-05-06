@@ -53,6 +53,8 @@ Expected:
 - [ ] Project skills discoverable through `.claude/skills`, `.agents/skills`, or `.cursor/skills`
 - [ ] `npm run build` emits API, Workflow, and MCP server bundle output
 - [ ] `npm run check:vercel-output` passes
+- [ ] Vercel Sandbox snapshot env considered for faster runs
+- [ ] Private repo clone token set when needed
 - [ ] Google OAuth client created
 - [ ] `GOOGLE_REFRESH_TOKEN` generated
 - [ ] Drive root folder chosen
@@ -82,6 +84,19 @@ Expected:
 - `GSHEETS_TEMPLATE_ID`: `npm run setup:google-templates` or existing Sheet ID.
 - `PINECONE_API_KEY`: Pinecone console.
 - `VOYAGE_API_KEY`: Voyage console.
+
+## Vercel Sandbox Environment Variables
+
+- `VERCEL_TOKEN`: Vercel account token, set in Build env to create the template sandbox snapshot.
+- `VERCEL_TEAM_ID`: Vercel team id, set in Build env with `VERCEL_TOKEN`.
+- `VERCEL_PROJECT_ID`: Vercel project id, set in Build env with `VERCEL_TOKEN`.
+- `AGENT_REPO_TOKEN`: Preferred private Git repo token. Required when a private repo must be cloned for snapshot creation or runtime fallback.
+- `GITHUB_TOKEN`: Alternative private Git repo token name. The runtime accepts either `AGENT_REPO_TOKEN` or `GITHUB_TOKEN`.
+- `AGENT_REPO_URL`: Optional Git remote override. Otherwise Vercel Git metadata or the starter repo URL is used.
+- `AGENT_REPO_REVISION`: Optional branch/SHA override. Otherwise Vercel Git metadata or `main` is used.
+- `AGENT_REPO_USERNAME`: Optional Git username override. Usually leave unset for personal access tokens.
+
+For public repos, the repo token is not needed. For private repos, use a fine-grained GitHub token with read access to the repository contents, or a classic token with repo access. Put the token in Vercel Build env if snapshot creation must clone a private repo; also put it in Runtime env if the project may fall back to per-job git clone.
 
 ## Verification Commands
 

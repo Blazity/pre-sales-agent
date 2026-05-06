@@ -47,7 +47,7 @@ async function main(): Promise<void> {
         "BUILD-TIME SANDBOX SNAPSHOT WAS NOT CREATED. " +
           "Set VERCEL_TOKEN, VERCEL_TEAM_ID, VERCEL_PROJECT_ID in this project's Build env, " +
           "then redeploy. Without the snapshot, every estimation pays ~60–120s of npm ci/build, " +
-          "and the runtime sandbox must clone the source repo (private repos require AGENT_REPO_TOKEN).",
+          "and the runtime sandbox must clone the source repo (private repos require AGENT_REPO_TOKEN or GITHUB_TOKEN).",
       );
     }
     return;

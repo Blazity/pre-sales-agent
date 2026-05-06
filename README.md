@@ -86,6 +86,18 @@ npm test
 
 `.env.example` is for local development only. Production values should live in the Vercel project's Environment Variables settings.
 
+## Environment Variables
+
+First launch requires provider credentials for Anthropic, Slack, Google Workspace, Pinecone, and Voyage. It also needs Google Drive template IDs after you run `npm run setup:google-templates`.
+
+For Vercel Sandbox, set these only when needed:
+
+| Variables | When needed |
+|---|---|
+| `VERCEL_TOKEN`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID` | Recommended in Vercel Build env to create the fast sandbox template snapshot. |
+| `AGENT_REPO_TOKEN` or `GITHUB_TOKEN` | Required for private repos when the snapshot build or runtime git-clone fallback must clone the source repo. |
+| `AGENT_REPO_URL`, `AGENT_REPO_REVISION`, `AGENT_REPO_USERNAME` | Optional overrides for non-default repo source, revision, or Git auth username. |
+
 ## Documentation
 
 - `docs/first-launch.md` guides a fresh Vercel deployment to the first successful Slack run.
