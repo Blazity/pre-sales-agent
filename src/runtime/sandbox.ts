@@ -416,6 +416,21 @@ export interface StreamOrchestratorEventsResult {
   offset: number;
 }
 
+export interface PumpOrchestratorOptions {
+  sandbox: Sandbox;
+  command: Command;
+  reporter: WorkflowReporter;
+  offset: number;
+  isFirstTick?: boolean;
+}
+
+export interface PumpOrchestratorTick {
+  done: boolean;
+  status?: "completed" | "failed";
+  error?: string;
+  offset: number;
+}
+
 interface ReadFileLike {
   readFile?: (params: { path: string }) => Promise<Buffer | null | { toString(encoding: string): string }>;
   readFileToBuffer?: (params: { path: string }) => Promise<Buffer | null>;
@@ -435,34 +450,33 @@ async function readSandboxFileBuffer(sandbox: Sandbox, filePath: string): Promis
   throw new Error("@vercel/sandbox client missing readFile / readFileToBuffer");
 }
 
-export async function streamOrchestratorEvents(
-  opts: StreamOrchestratorEventsOptions,
-): Promise<StreamOrchestratorEventsResult> {
+export async function pumpOrchestratorEventsOnce(
+  opts: PumpOrchestratorOptions,
+): Promise<PumpOrchestratorTick> {
   const { sandbox, command, reporter } = opts;
-  const pollMs = opts.pollIntervalMs ?? POLL_INTERVAL_MS;
-
-  const remainingMs = Math.max(
-    0,
-    sandbox.timeout - (Date.now() - sandbox.createdAt.getTime()),
-  );
-  if (remainingMs < SANDBOX_EXTEND_THRESHOLD_MS) {
-    await sandbox.extendTimeout(SANDBOX_EXTEND_MS).catch((err) => {
-      const message = err instanceof Error ? err.message : String(err);
-      const atCap = message.includes("400");
-      const log = atCap ? logger.info : logger.warn;
-      log("extendTimeout did not extend sandbox", {
-        sandboxId: sandbox.sandboxId,
-        remainingMs,
-        atCap,
-        error: message,
-      });
-    });
-  }
-
-  let offset = opts.offset ?? 0;
-  let buffered = "";
+  let offset = opts.offset;
   let finalStatus: "completed" | "failed" | null = null;
   let finalError: string | undefined;
+
+  if (opts.isFirstTick) {
+    const remainingMs = Math.max(
+      0,
+      sandbox.timeout - (Date.now() - sandbox.createdAt.getTime()),
+    );
+    if (remainingMs < SANDBOX_EXTEND_THRESHOLD_MS) {
+      await sandbox.extendTimeout(SANDBOX_EXTEND_MS).catch((err) => {
+        const message = err instanceof Error ? err.message : String(err);
+        const atCap = message.includes("400");
+        const log = atCap ? logger.info : logger.warn;
+        log("extendTimeout did not extend sandbox", {
+          sandboxId: sandbox.sandboxId,
+          remainingMs,
+          atCap,
+          error: message,
+        });
+      });
+    }
+  }
 
   const sinks: JsonlDispatchSinks = {
     onProgress: (event) => reporter.progress(event),
@@ -476,70 +490,78 @@ export async function streamOrchestratorEvents(
     },
   };
 
-  const dispatchNewBytes = async (): Promise<void> => {
-    const buf = await readSandboxFileBuffer(sandbox, EVENT_LOG_PATH);
-    if (!buf) return;
-    if (buf.length <= offset) return;
-    const chunk = buf.slice(offset).toString("utf8");
-    offset = buf.length;
-    buffered = await dispatchJsonlChunk(buffered, chunk, sinks);
-  };
-
-  const readResultIfPresent = async (): Promise<boolean> => {
-    const buf = await readSandboxFileBuffer(sandbox, RESULT_PATH).catch(() => null);
-    if (!buf || buf.length === 0) return false;
-    try {
-      const parsed = JSON.parse(buf.toString("utf8")) as { status: "completed" | "failed"; error?: string };
-      finalStatus = parsed.status;
-      finalError = parsed.error;
-      return true;
-    } catch {
-      return false;
+  const buf = await readSandboxFileBuffer(sandbox, EVENT_LOG_PATH);
+  if (buf && buf.length > offset) {
+    const newBytes = buf.slice(offset);
+    const lastNl = newBytes.lastIndexOf(0x0a);
+    if (lastNl >= 0) {
+      const completeChunk = newBytes.slice(0, lastNl + 1).toString("utf8");
+      offset += lastNl + 1;
+      await dispatchJsonlChunk("", completeChunk, sinks);
     }
-  };
+  }
 
-  type CommandExit = { exitCode?: number; error?: string };
-  const commandExitRef: { value: CommandExit | null } = { value: null };
-  const waitPromise = command
-    .wait()
-    .then((finished) => {
-      commandExitRef.value = { exitCode: finished.exitCode };
-    })
-    .catch((err) => {
-      commandExitRef.value = { error: err instanceof Error ? err.message : String(err) };
-    });
+  if (finalStatus === null) {
+    const resultBuf = await readSandboxFileBuffer(sandbox, RESULT_PATH).catch(() => null);
+    if (resultBuf && resultBuf.length > 0) {
+      try {
+        const parsed = JSON.parse(resultBuf.toString("utf8")) as {
+          status: "completed" | "failed";
+          error?: string;
+        };
+        finalStatus = parsed.status;
+        finalError = parsed.error;
+      } catch {}
+    }
+  }
 
-  while (finalStatus === null) {
-    if (opts.signal?.aborted) break;
-    await dispatchNewBytes();
-    if (finalStatus !== null) break;
-    if (await readResultIfPresent()) break;
-
-    if (commandExitRef.value !== null) {
-      await dispatchNewBytes();
-      if (await readResultIfPresent()) break;
-      const exitCode = commandExitRef.value.exitCode;
+  if (finalStatus === null) {
+    const exitInfo = await Promise.race([
+      command.wait().then((f) => ({ exited: true as const, exitCode: f.exitCode })).catch(() => ({ exited: false as const })),
+      new Promise<{ exited: false }>((r) => setTimeout(() => r({ exited: false as const }), 100)),
+    ]);
+    if (exitInfo.exited) {
       const stderr = await command.stderr().catch(() => "");
       finalStatus = "failed";
       finalError =
-        `Sandbox orchestrator exited (code ${exitCode ?? "?"}) without writing result.json. ` +
+        `Sandbox orchestrator exited (code ${exitInfo.exitCode ?? "?"}) without writing result.json. ` +
         `stderr tail: ${stderr.slice(-500) || "<empty>"}`;
-      break;
     }
-
-    await new Promise((r) => setTimeout(r, pollMs));
   }
 
-  await Promise.race([waitPromise, Promise.resolve()]).catch(() => {});
+  return finalStatus !== null
+    ? { done: true, status: finalStatus, error: finalError, offset }
+    : { done: false, offset };
+}
 
-  await dispatchNewBytes();
-  if (buffered.trim()) await sinks.onUnparsed(buffered);
-
-  return {
-    status: finalStatus ?? "failed",
-    error: finalError ?? (finalStatus === null ? "Sandbox orchestrator did not produce a result" : undefined),
-    offset,
-  };
+export async function streamOrchestratorEvents(
+  opts: StreamOrchestratorEventsOptions,
+): Promise<StreamOrchestratorEventsResult> {
+  const pollMs = opts.pollIntervalMs ?? POLL_INTERVAL_MS;
+  let offset = opts.offset ?? 0;
+  let isFirstTick = true;
+  while (true) {
+    if (opts.signal?.aborted) {
+      return { status: "failed", error: "aborted by caller", offset };
+    }
+    const tick = await pumpOrchestratorEventsOnce({
+      sandbox: opts.sandbox,
+      command: opts.command,
+      reporter: opts.reporter,
+      offset,
+      isFirstTick,
+    });
+    isFirstTick = false;
+    offset = tick.offset;
+    if (tick.done) {
+      return {
+        status: tick.status ?? "failed",
+        error: tick.error,
+        offset,
+      };
+    }
+    await new Promise((r) => setTimeout(r, pollMs));
+  }
 }
 
 export async function stopSandbox(sandbox: Sandbox, jobId: string): Promise<void> {

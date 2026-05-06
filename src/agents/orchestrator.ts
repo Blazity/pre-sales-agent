@@ -17,6 +17,7 @@ const MCP_SERVER_NAMES = ["knowledge-base", "google-workspace", "web-research", 
 const SDK_IDLE_DIAGNOSTIC_AFTER_MS = 45_000;
 const SDK_IDLE_DIAGNOSTIC_INTERVAL_MS = 60_000;
 const SDK_IDLE_DIAGNOSTIC_TICK_MS = 5_000;
+const SDK_IDLE_HARD_ABORT_MS = 5 * 60 * 1000;
 type McpServerName = typeof MCP_SERVER_NAMES[number];
 
 const TOOL_TO_STEP: Record<string, number> = {
@@ -940,6 +941,7 @@ ${skipInstructions.length > 0 ? `\nOVERRIDES:\n${skipInstructions.join("\n")}\n`
   let stderrBuffer = "";
   let lastStderrReportAt = 0;
   let idleDiagnostic: NodeJS.Timeout | undefined;
+  let idleAborted = false;
   const activeToolCalls = new Map<string, { name: string; startedAt: number; turn: number; step: number }>();
   let lastToolCall: { name: string; at: number; turn: number } | undefined;
   let lastToolResult: { name: string; at: number; turn: number; resultLength: number } | undefined;
@@ -1020,6 +1022,15 @@ ${skipInstructions.length > 0 ? `\nOVERRIDES:\n${skipInstructions.join("\n")}\n`
     idleDiagnostic = setInterval(() => {
       const now = Date.now();
       const idleMs = now - lastSdkEventAt;
+      if (!idleAborted && idleMs >= SDK_IDLE_HARD_ABORT_MS) {
+        idleAborted = true;
+        void safeReport(jobId, "sdk-idle-abort", () => reporter.system("Aborting agent run due to SDK idle timeout", {
+          ...buildSdkDiagnostic(),
+          thresholdMs: SDK_IDLE_HARD_ABORT_MS,
+        }));
+        controller.abort();
+        return;
+      }
       if (idleMs < SDK_IDLE_DIAGNOSTIC_AFTER_MS) return;
       if (now - lastDiagnosticAt < SDK_IDLE_DIAGNOSTIC_INTERVAL_MS) return;
       lastDiagnosticAt = now;
@@ -1237,6 +1248,9 @@ ${skipInstructions.length > 0 ? `\nOVERRIDES:\n${skipInstructions.join("\n")}\n`
     }));
 
     if (controller.signal.aborted) {
+      if (idleAborted) {
+        throw new Error(`Agent run aborted: no SDK event for ${SDK_IDLE_HARD_ABORT_MS / 1000}s (stuck Claude Code stream or upstream Anthropic API)`);
+      }
       await safeReport(jobId, "progress", () => reporter.progress({ status: "cancelled" }));
       await safeReport(jobId, "system", () => reporter.system("Job cancelled"));
       timer.end({ turns, cancelled: true });
@@ -1257,7 +1271,7 @@ ${skipInstructions.length > 0 ? `\nOVERRIDES:\n${skipInstructions.join("\n")}\n`
       outputTokens: resultOutputTokens,
     }));
 
-    if (controller.signal.aborted) {
+    if (controller.signal.aborted && !idleAborted) {
       await safeReport(jobId, "progress", () => reporter.progress({ status: "cancelled" }));
       await safeReport(jobId, "system", () => reporter.system("Job cancelled"));
       timer.end({ turns, cancelled: true });

@@ -1,4 +1,4 @@
-import { FatalError } from "workflow";
+import { FatalError, sleep } from "workflow";
 import type { Sandbox, Command } from "@vercel/sandbox";
 import type { EstimationJob } from "../src/agents/orchestrator.js";
 
@@ -13,11 +13,22 @@ interface BootJobResult {
   command: Command;
 }
 
-interface StreamResult {
-  status: "completed" | "failed";
+interface PumpStepInput {
+  jobId: string;
+  sandbox: Sandbox;
+  command: Command;
+  offset: number;
+  isFirstTick: boolean;
+}
+
+interface PumpStepResult {
+  done: boolean;
+  status?: "completed" | "failed";
   error?: string;
   offset: number;
 }
+
+const MAX_PUMP_ITERATIONS = 1200;
 
 export async function estimationWorkflow(job: EstimationJob): Promise<EstimationWorkflowResult> {
   "use workflow";
@@ -31,20 +42,35 @@ export async function estimationWorkflow(job: EstimationJob): Promise<Estimation
   }
 
   const booted = await bootJobStep(job);
-  let stream: StreamResult | null = null;
+  let result: PumpStepResult | null = null;
+  let offset = 0;
   try {
-    stream = await streamOrchestratorStep({
-      jobId: booted.jobId,
-      sandbox: booted.sandbox,
-      command: booted.command,
-      offset: 0,
-    });
+    for (let i = 0; i < MAX_PUMP_ITERATIONS; i++) {
+      const tick = await pumpSandboxStep({
+        jobId: booted.jobId,
+        sandbox: booted.sandbox,
+        command: booted.command,
+        offset,
+        isFirstTick: i === 0,
+      });
+      offset = tick.offset;
+      if (tick.done) {
+        result = tick;
+        break;
+      }
+      await sleep("3s");
+    }
   } finally {
     await cleanupSandboxStep({ jobId: booted.jobId, sandbox: booted.sandbox });
   }
 
-  if (!stream || stream.status !== "completed") {
-    throw new FatalError(stream?.error ?? "Sandbox orchestrator failed without an error message");
+  if (!result) {
+    throw new FatalError(
+      `Sandbox orchestrator did not finish within ${MAX_PUMP_ITERATIONS} pump iterations`,
+    );
+  }
+  if (result.status !== "completed") {
+    throw new FatalError(result.error ?? "Sandbox orchestrator failed without an error message");
   }
 
   return { jobId: job.jobId, status: "completed" };
@@ -89,33 +115,36 @@ async function bootJobStep(job: EstimationJob): Promise<BootJobResult> {
 }
 bootJobStep.maxRetries = 0;
 
-interface StreamStepInput {
-  jobId: string;
-  sandbox: Sandbox;
-  command: Command;
-  offset: number;
-}
-
-async function streamOrchestratorStep(input: StreamStepInput): Promise<StreamResult> {
+async function pumpSandboxStep(input: PumpStepInput): Promise<PumpStepResult> {
   "use step";
 
   const { createWorkflowReporter } = await import("../src/lib/workflow-reporter.js");
-  const { streamOrchestratorEvents } = await import("../src/runtime/sandbox.js");
+  const { pumpOrchestratorEventsOnce } = await import("../src/runtime/sandbox.js");
   const reporter = createWorkflowReporter(input.jobId);
 
-  await reporter.system("Attached to sandbox", {
-    sandboxId: input.sandbox.sandboxId,
-    eventOffset: input.offset,
-  });
+  if (input.isFirstTick) {
+    await reporter.system("Attached to sandbox", {
+      sandboxId: input.sandbox.sandboxId,
+      eventOffset: input.offset,
+    });
+  }
 
-  return await streamOrchestratorEvents({
+  const tick = await pumpOrchestratorEventsOnce({
     sandbox: input.sandbox,
     command: input.command,
     reporter,
     offset: input.offset,
+    isFirstTick: input.isFirstTick,
   });
+
+  return {
+    done: tick.done,
+    status: tick.status,
+    error: tick.error,
+    offset: tick.offset,
+  };
 }
-streamOrchestratorStep.maxRetries = 5;
+pumpSandboxStep.maxRetries = 3;
 
 interface CleanupStepInput {
   jobId: string;
