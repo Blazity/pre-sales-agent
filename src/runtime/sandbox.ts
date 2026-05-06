@@ -229,7 +229,7 @@ export function resolveRepoUrl(env: NodeJS.ProcessEnv): string {
 }
 
 export function resolveRepoRevision(env: NodeJS.ProcessEnv): string {
-  return env.AGENT_REPO_REVISION ?? env.VERCEL_GIT_COMMIT_REF ?? env.VERCEL_GIT_COMMIT_SHA ?? "main";
+  return env.AGENT_REPO_REVISION ?? env.VERCEL_GIT_COMMIT_SHA ?? env.VERCEL_GIT_COMMIT_REF ?? "main";
 }
 
 type GitSource =
@@ -253,8 +253,8 @@ function buildGitSource(env: NodeJS.ProcessEnv): GitSource {
         url: repoUrl,
         revision,
         depth: 1,
-        username: env.AGENT_REPO_USERNAME ?? gitToken,
-        password: env.AGENT_REPO_USERNAME ? gitToken : "x-oauth-basic",
+        username: "x-access-token",
+        password: gitToken,
       }
     : { type: "git", url: repoUrl, revision, depth: 1 };
 }
@@ -287,8 +287,8 @@ export async function bootSandboxForJob(opts: BootSandboxForJobOptions): Promise
   if (!fromSnapshot) {
     logger.warn(
       "No build-time sandbox snapshot — falling back to git-clone path. " +
-        "Set VERCEL_TOKEN, VERCEL_TEAM_ID, VERCEL_PROJECT_ID in the project's Build env to enable the snapshot, " +
-        "and AGENT_REPO_TOKEN (or GITHUB_TOKEN) for private repos.",
+        "Vercel builds use platform-provided Sandbox authentication for snapshot creation, " +
+        "and AGENT_REPO_TOKEN (or GITHUB_TOKEN) as the Git password for private repos.",
       {
         jobId: opts.job.jobId,
         repoUrl: resolveRepoUrl(env),
@@ -349,7 +349,7 @@ export async function bootSandboxForJob(opts: BootSandboxForJobOptions): Promise
         const tokenHint = env.AGENT_REPO_TOKEN ?? env.GITHUB_TOKEN
           ? "AGENT_REPO_TOKEN/GITHUB_TOKEN was set but git rejected it (check token scope and repo access)"
           : "no AGENT_REPO_TOKEN or GITHUB_TOKEN was set, so the clone tried unauthenticated — set one of these in the runtime env for private repos";
-        return ` Tried git-clone of ${detail.repoUrl}@${detail.revision}; ${tokenHint}. Or, set VERCEL_TOKEN/VERCEL_TEAM_ID/VERCEL_PROJECT_ID at build time so per-job sandboxes use the prebuilt snapshot instead.`;
+        return ` Tried git-clone of ${detail.repoUrl}@${detail.revision}; ${tokenHint}. Or, make sure the deployed build can create the Vercel Sandbox snapshot with OIDC so per-job sandboxes use the prebuilt snapshot instead.`;
       }
       return "";
     })();

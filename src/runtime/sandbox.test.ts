@@ -118,9 +118,10 @@ describe("resolveRepoUrl", () => {
 });
 
 describe("resolveRepoRevision", () => {
-  it("prefers AGENT_REPO_REVISION, then ref, then commit SHA, then main", () => {
+  it("prefers AGENT_REPO_REVISION, then commit SHA, then ref, then main", () => {
     assert.equal(resolveRepoRevision({ AGENT_REPO_REVISION: "feat", VERCEL_GIT_COMMIT_SHA: "abc" }), "feat");
-    assert.equal(resolveRepoRevision({ VERCEL_GIT_COMMIT_SHA: "abc", VERCEL_GIT_COMMIT_REF: "ref" }), "ref");
+    assert.equal(resolveRepoRevision({ VERCEL_GIT_COMMIT_SHA: "abc", VERCEL_GIT_COMMIT_REF: "ref" }), "abc");
+    assert.equal(resolveRepoRevision({ VERCEL_GIT_COMMIT_REF: "ref" }), "ref");
     assert.equal(resolveRepoRevision({ VERCEL_GIT_COMMIT_SHA: "abc" }), "abc");
     assert.equal(resolveRepoRevision({}), "main");
   });
@@ -309,6 +310,33 @@ describe("bootSandboxForJob", () => {
     assert.match((createCalls[0] as { env?: Record<string, string> }).env?.AGENT_SANDBOX_LABEL ?? "", /^build-a-marketing-site-that-[a-f0-9]{6}$/);
     assert.ok(ciCall, "git path must run npm ci");
     assert.ok(buildCall, "git path must run npm run build");
+  });
+
+  it("passes private GitHub repo tokens as x-access-token credentials", async () => {
+    const fake = makeFakeSandbox();
+    const createCalls: Array<Record<string, unknown>> = [];
+    await bootSandboxForJob({
+      job: makeJob(),
+      env: {
+        VERCEL_GIT_REPO_OWNER: "Blazity",
+        VERCEL_GIT_REPO_SLUG: "private-fork",
+        VERCEL_GIT_COMMIT_SHA: "abc123",
+        AGENT_REPO_TOKEN: "github_pat_test",
+      },
+      snapshotId: null,
+      createSandbox: (async (params: Record<string, unknown>) => {
+        createCalls.push(params);
+        return fake.sandbox as unknown as Sandbox;
+      }) as unknown as typeof import("@vercel/sandbox").Sandbox.create,
+    });
+
+    const source = (createCalls[0] as {
+      source: { type: string; username?: string; password?: string; revision?: string };
+    }).source;
+    assert.equal(source.type, "git");
+    assert.equal(source.username, "x-access-token");
+    assert.equal(source.password, "github_pat_test");
+    assert.equal(source.revision, "abc123");
   });
 });
 

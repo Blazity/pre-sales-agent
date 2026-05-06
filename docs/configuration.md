@@ -20,8 +20,8 @@ By default, the app uses the starter agency profile. For a real agency, copy `co
 | Retrieval | Yes | `PINECONE_API_KEY`, `VOYAGE_API_KEY` |
 | Retrieval index override | Optional | `PINECONE_INDEX` |
 | Workspace override | Optional | `AGENT_WORKSPACE_PROVIDER` |
-| Vercel Sandbox snapshot | Recommended | `VERCEL_TOKEN`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID` |
-| Private repo clone access | Conditional | `AGENT_REPO_TOKEN` or `GITHUB_TOKEN`, plus optional `AGENT_REPO_USERNAME` |
+| Vercel Sandbox snapshot | Automatic on Vercel | Platform-provided Sandbox authentication |
+| Private repo clone access | Conditional | `AGENT_REPO_TOKEN` or `GITHUB_TOKEN` |
 | Repo source override | Optional | `AGENT_REPO_URL`, `AGENT_REPO_REVISION` |
 | Agency profile | Optional | `AGENCY_PROFILE_PATH`, `AGENCY_NAME`, `AGENCY_ACCENT_COLOR`, `CASE_STUDIES_BASE_URL` |
 | Web research | Optional | `BRAVE_SEARCH_API_KEY` |

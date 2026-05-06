@@ -14,21 +14,8 @@ function warn(message: string): void {
   process.stdout.write(`[snapshot-sandbox] ${message}\n`);
 }
 
-export function resolveSnapshotCredentials(
-  env: NodeJS.ProcessEnv = process.env,
-): { token: string; teamId: string; projectId: string } | { reason: string } {
-  const token = env.VERCEL_TOKEN;
-  const teamId = env.VERCEL_TEAM_ID;
-  const projectId = env.VERCEL_PROJECT_ID;
-  if (!token || !teamId || !projectId) {
-    const missing = [
-      !token && "VERCEL_TOKEN",
-      !teamId && "VERCEL_TEAM_ID",
-      !projectId && "VERCEL_PROJECT_ID",
-    ].filter(Boolean).join(", ");
-    return { reason: `${missing} not set — skipping sandbox snapshot. Runtime will fall back to git-clone path.` };
-  }
-  return { token, teamId, projectId };
+export function shouldCreateSnapshot(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.VERCEL === "1";
 }
 
 async function writeSnapshotIdFile(snapshotId: string | null): Promise<void> {
@@ -39,20 +26,10 @@ async function writeSnapshotIdFile(snapshotId: string | null): Promise<void> {
 
 async function main(): Promise<void> {
   const env = process.env;
-  const creds = resolveSnapshotCredentials(env);
-  if ("reason" in creds) {
-    warn(creds.reason);
-    if (env.VERCEL === "1") {
-      warn(
-        "BUILD-TIME SANDBOX SNAPSHOT WAS NOT CREATED. " +
-          "Set VERCEL_TOKEN, VERCEL_TEAM_ID, VERCEL_PROJECT_ID in this project's Build env, " +
-          "then redeploy. Without the snapshot, every estimation pays ~60–120s of npm ci/build, " +
-          "and the runtime sandbox must clone the source repo (private repos require AGENT_REPO_TOKEN or GITHUB_TOKEN).",
-      );
-    }
+  if (!shouldCreateSnapshot(env)) {
+    warn("Not running on Vercel — skipping sandbox snapshot. Runtime will fall back to git-clone path.");
     return;
   }
-  const { token, teamId, projectId } = creds;
 
   const repoUrl = resolveRepoUrl(env);
   const revision = resolveRepoRevision(env);
@@ -63,16 +40,14 @@ async function main(): Promise<void> {
         url: repoUrl,
         revision,
         depth: 1,
-        username: env.AGENT_REPO_USERNAME ?? gitToken,
-        password: env.AGENT_REPO_USERNAME ? gitToken : "x-oauth-basic",
+        username: "x-access-token",
+        password: gitToken,
       }
     : { type: "git" as const, url: repoUrl, revision, depth: 1 };
 
   warn(`Creating template sandbox from ${repoUrl}@${revision}`);
+  warn("Using Vercel-provided Sandbox authentication");
   const sandbox = await Sandbox.create({
-    teamId,
-    projectId,
-    token,
     source,
     resources: { vcpus: 2 },
     runtime: "node24",

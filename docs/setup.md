@@ -232,19 +232,15 @@ Vercel defaults:
 
 The Deploy Button does not ask for these defaults.
 
-### Sandbox template snapshot (recommended)
+### Sandbox template snapshot
 
 Each estimation runs in its own Vercel Sandbox. By default the sandbox is built per-job by cloning your repo and running `npm ci` + `npm run build` inside it, which adds ~60–120s to every run and only works if the runtime can reach your Git source. To skip both costs, set up the build-time snapshot:
 
-In your Vercel project settings → Environment Variables, scope these to the **Build** environment (not Runtime):
+On deployed Vercel builds, Sandbox authentication is provided by the platform. No Vercel access token or project/team id environment variables are needed.
 
-| Variable | Where to get it |
-|---|---|
-| `VERCEL_TOKEN` | Account Settings → Tokens → Create. Scope to the team. |
-| `VERCEL_TEAM_ID` | Team Settings (top of the page). |
-| `VERCEL_PROJECT_ID` | Project Settings → General. |
+After redeploying, `npm run build` will create a sandbox, install + build inside it, snapshot the result, and bundle the snapshot id into the runtime function. Per-job sandboxes then start in ~5–10s with no network access required to your source repo. If the build script can't authenticate to Sandbox it logs a warning and the runtime falls back to git-clone.
 
-After redeploying, `npm run build` will create a sandbox, install + build inside it, snapshot the result, and bundle the snapshot id into the runtime function. Per-job sandboxes then start in ~5–10s with no network access required to your source repo. If the build script can't find these vars it logs a warning and the runtime falls back to git-clone.
+When Vercel Git metadata is available, the sandbox clones the exact deployment commit SHA. `AGENT_REPO_REVISION` is only for an intentional branch or SHA override.
 
 ### Private repos
 
@@ -252,9 +248,10 @@ If your repo is private, the sandbox needs Git credentials whenever it must clon
 
 | Variable | Notes |
 |---|---|
-| `AGENT_REPO_TOKEN` | Preferred name for a GitHub personal-access token. Fine-grained tokens need read access to repository contents; classic tokens need repo access. |
+| `AGENT_REPO_TOKEN` | Preferred name for a private GitHub repo token. Fine-grained tokens need `Contents: Read` and `Metadata: Read`; classic tokens need `repo` scope. |
 | `GITHUB_TOKEN` | Alternative name; either works because the runtime checks `AGENT_REPO_TOKEN` first and then `GITHUB_TOKEN`. |
-| `AGENT_REPO_USERNAME` | Optional — set this only if you're using a GitHub App installation token (then pass `x-access-token` here). |
+
+The sandbox passes the token as the Git password with username `x-access-token`, matching Vercel's private GitHub repository guidance. For multi-tenant or user-owned repositories, prefer a GitHub App installation token generated fresh for each sandbox creation.
 
 Set the token in the **Build** environment when snapshot creation must clone a private repo. Also set it in the **Runtime** environment if the project may fall back to per-job git clone.
 

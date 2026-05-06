@@ -17,7 +17,7 @@
     "node": ">=20.18.1"
   },
   "scripts": {
-    "build": "workflow validate --strict && npm run typecheck && tsx scripts/build-vercel-output.ts && tsx scripts/snapshot-sandbox.ts",
+    "build": "workflow validate --strict && npm run typecheck && tsx scripts/snapshot-sandbox.ts && tsx scripts/build-vercel-output.ts",
     "typecheck": "tsc --noEmit",
     "dev:vercel": "npx vercel dev",
     "seed": "tsx scripts/seed-knowledge-base.ts",

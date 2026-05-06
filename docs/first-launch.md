@@ -55,7 +55,7 @@ Collect these values:
 | Pinecone | `PINECONE_API_KEY` |
 | Slack | `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET` |
 | Google Workspace | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, Drive folder and template IDs |
-| Vercel Sandbox | `VERCEL_TOKEN`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID` recommended for fast snapshots; `AGENT_REPO_TOKEN` or `GITHUB_TOKEN` required for private repo clone access |
+| Vercel Sandbox | Platform authentication is automatic on deployed Vercel builds; `AGENT_REPO_TOKEN` or `GITHUB_TOKEN` is required only for private repo clone access |
 
 ## 3. Configure Google Workspace
 
@@ -119,13 +119,7 @@ PINECONE_API_KEY
 VOYAGE_API_KEY
 ```
 
-Recommended for faster Vercel Sandbox startup, set these in the Build environment:
-
-```text
-VERCEL_TOKEN
-VERCEL_TEAM_ID
-VERCEL_PROJECT_ID
-```
+Vercel Sandbox authentication is automatic on deployed Vercel builds, so the normal deploy-first path does not require a Vercel access token.
 
 If the deployed source repository is private, also set one of these wherever the sandbox must clone the repo:
 
@@ -134,7 +128,7 @@ AGENT_REPO_TOKEN
 GITHUB_TOKEN
 ```
 
-The snapshot build needs the token in the Build environment. If no snapshot is created and the runtime falls back to per-job git clone, the runtime also needs the token.
+Use a fine-grained GitHub token with `Contents: Read` and `Metadata: Read`, a classic token with `repo` scope, or a short-lived GitHub App installation token. The sandbox uses the token as the Git password with username `x-access-token`. The snapshot build needs the token in the Build environment. If no snapshot is created and the runtime falls back to per-job git clone, the runtime also needs the token.
 
 Redeploy after changing environment variables.
 
