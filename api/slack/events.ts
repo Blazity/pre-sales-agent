@@ -11,6 +11,12 @@ export const config = {
 const { receiver } = createSlackApp();
 
 export default function handler(req: IncomingMessage, res: ServerResponse) {
+  if (req.headers["x-slack-retry-num"]) {
+    res.statusCode = 200;
+    res.end();
+    return;
+  }
+
   const originalUrl = req.url;
   req.url = "/events";
 

@@ -40,6 +40,20 @@ export async function validateSlackToken(): Promise<{
   }
 }
 
+const SEEN_EVENT_RETENTION_MS = 5 * 60_000;
+const seenEventIds = new Map<string, number>();
+
+function isDuplicateEvent(eventId: string | undefined): boolean {
+  if (!eventId) return false;
+  const now = Date.now();
+  for (const [id, ts] of seenEventIds) {
+    if (now - ts > SEEN_EVENT_RETENTION_MS) seenEventIds.delete(id);
+  }
+  if (seenEventIds.has(eventId)) return true;
+  seenEventIds.set(eventId, now);
+  return false;
+}
+
 export function createSlackApp() {
   const receiver = new ExpressReceiver({
     signingSecret: env.SLACK_SIGNING_SECRET,
@@ -59,6 +73,12 @@ export function createSlackApp() {
   app.use(async (args: any) => {
     const body = args.body;
     const event = body?.event;
+    if (isDuplicateEvent(body?.event_id)) {
+      console.log("[trace] middleware:duplicate-event-dropped", {
+        eventId: body?.event_id,
+      });
+      return;
+    }
     console.log("[trace] middleware:enter", {
       bodyType: body?.type,
       eventType: event?.type,
