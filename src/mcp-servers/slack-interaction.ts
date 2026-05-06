@@ -3,7 +3,9 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { WebClient } from "@slack/web-api";
 import { z } from "zod";
 import { config } from "dotenv";
-config();
+// quiet: true — dotenv 17+ writes a startup tip to stdout, which corrupts
+// the MCP JSON-RPC handshake on this server's stdio transport.
+config({ quiet: true });
 
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN!);
 const ALLOWED_CHANNEL = process.env.ALLOWED_CHANNEL;

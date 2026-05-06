@@ -6,7 +6,9 @@ import { Agent, fetch as undiciFetch, type RequestInfo as UndiciRequestInfo, typ
 import { z } from "zod";
 import { config } from "dotenv";
 import Anthropic from "@anthropic-ai/sdk";
-config();
+// quiet: true — dotenv 17+ writes a startup tip to stdout, which corrupts
+// the MCP JSON-RPC handshake on this server's stdio transport.
+config({ quiet: true });
 
 const MAX_TEXT_LENGTH = 10000;
 const FETCH_TIMEOUT_MS = 10_000;

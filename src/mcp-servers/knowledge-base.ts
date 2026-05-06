@@ -3,7 +3,9 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { Pinecone } from "@pinecone-database/pinecone";
 import { z } from "zod";
 import { config } from "dotenv";
-config();
+// quiet: true — dotenv 17+ writes a startup tip to stdout, which corrupts
+// the MCP JSON-RPC handshake on this server's stdio transport.
+config({ quiet: true });
 
 const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
 const INDEX_NAME = process.env.PINECONE_INDEX ?? "estimations";

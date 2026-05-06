@@ -18,7 +18,7 @@ Slack RFP or brief
   -> Slack thread completion message
 ```
 
-The public starter is Vercel-first: Vercel Functions for HTTP ingress, Vercel Workflow for durable execution and observability, and Vercel Sandbox for the agent workspace on Vercel.
+The public starter is Vercel-first: Vercel Functions for HTTP ingress, Vercel Workflow for durable execution and observability, and Vercel Sandbox for the agent workspace on Vercel. Each estimation gets exactly one sandbox, created from a build-time snapshot when available (so per-job creation is ~5–10s) and reused across every workflow step retry via `@vercel/sandbox`'s native `@workflow/serde` integration.
 
 ## Repository Facts
 

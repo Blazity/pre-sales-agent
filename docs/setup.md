@@ -232,6 +232,34 @@ Vercel defaults:
 
 The Deploy Button does not ask for these defaults.
 
+### Sandbox template snapshot (recommended)
+
+Each estimation runs in its own Vercel Sandbox. By default the sandbox is built per-job by cloning your repo and running `npm ci` + `npm run build` inside it, which adds ~60–120s to every run and only works if the runtime can reach your Git source. To skip both costs, set up the build-time snapshot:
+
+In your Vercel project settings → Environment Variables, scope these to the **Build** environment (not Runtime):
+
+| Variable | Where to get it |
+|---|---|
+| `VERCEL_TOKEN` | Account Settings → Tokens → Create. Scope to the team. |
+| `VERCEL_TEAM_ID` | Team Settings (top of the page). |
+| `VERCEL_PROJECT_ID` | Project Settings → General. |
+
+After redeploying, `npm run build` will create a sandbox, install + build inside it, snapshot the result, and bundle the snapshot id into the runtime function. Per-job sandboxes then start in ~5–10s with no network access required to your source repo. If the build script can't find these vars it logs a warning and the runtime falls back to git-clone.
+
+### Private repos (only if you don't set up the snapshot)
+
+If you skip the snapshot above and your repo is private, the runtime sandbox needs Git credentials to clone it:
+
+| Variable | Notes |
+|---|---|
+| `AGENT_REPO_TOKEN` | A GitHub personal-access token (classic or fine-grained) with `repo` scope. Set in the **Runtime** environment. |
+| `GITHUB_TOKEN` | Alternative name; either works. |
+| `AGENT_REPO_USERNAME` | Optional — set this only if you're using a GitHub App installation token (then pass `x-access-token` here). |
+
+Public-repo deployments don't need these.
+
+Symptom of missing this when needed: workflow run fails with `Sandbox.create failed (400 Bad Request): {"error":...,"message":"git clone failed"}`. The recommended fix is the build-time snapshot above; the token is the workaround.
+
 ## 8. Test the Workflow
 
 Before changing Slack, verify the exact ingress URL with:
