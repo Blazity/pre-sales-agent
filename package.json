@@ -48,7 +48,7 @@
     "@pinecone-database/pinecone": "latest",
     "@slack/bolt": "latest",
     "@slack/web-api": "latest",
-    "@vercel/sandbox": "^1.10.0",
+    "@vercel/sandbox": "^1.10.1",
     "dotenv": "latest",
     "express": "latest",
     "mammoth": "^1.12.0",
